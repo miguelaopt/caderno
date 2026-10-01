@@ -331,6 +331,35 @@ try {
   assert.equal((await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name: 'Segunda' } })).status, 201);
   assert.equal((await request('/api/delete-account', { cookie: alice, method: 'POST', json: { password: 'uma-password-longa-123' } })).status, 200);
   assert.equal((await request('/api/state', { cookie: alice })).status, 401);
+  const ossChild = spawn(process.execPath, ['scripts/product.mjs'], { cwd: process.cwd(),
+    env: { ...process.env, ENABLE_HOSTED_BILLING: 'false', ANTHROPIC_API_KEY: '', PORT: '0',
+      PRODUCT_DB_PATH: join(temp, 'oss.db'), PRODUCT_FILES_DIR: join(temp, 'oss-files') },
+    stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    const ossPort = await new Promise((resolve, reject) => {
+      ossChild.stdout.on('data', (chunk) => {
+        const match = /localhost:(\d+)/.exec(chunk.toString());
+        if (match) resolve(Number(match[1]));
+      });
+      ossChild.on('exit', (code) => reject(new Error(`Servidor open source saiu com código ${code}`)));
+      setTimeout(() => reject(new Error('Servidor open source não iniciou')), 5000).unref();
+    });
+    const ossBase = `http://127.0.0.1:${ossPort}`;
+    const ossRegister = await fetch(ossBase + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'oss@example.test', password: 'uma-password-longa-123' }) });
+    assert.equal(ossRegister.status, 201);
+    const ossCookie = ossRegister.headers.get('set-cookie').split(';')[0];
+    for (const name of ['Primeira', 'Segunda']) {
+      const response = await fetch(ossBase + '/api/manual-course', { method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ name }) });
+      assert.equal(response.status, 201);
+    }
+    const ossState = await (await fetch(ossBase + '/api/state', { headers: { cookie: ossCookie } })).json();
+    assert.equal(ossState.courses.length, 2);
+    assert.equal(ossState.hostedBilling, false);
+  } finally {
+    if (ossChild.exitCode === null) { ossChild.kill(); await once(ossChild, 'exit').catch(() => {}); }
+  }
   console.log('ok — produto: cifra, isolamento de contas, limites e eliminação');
 } finally {
   if (child.exitCode === null) {
