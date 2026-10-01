@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caderno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>try{var t=localStorage.getItem('caderno.tema');document.documentElement.dataset.theme=t||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');}catch(e){document.documentElement.dataset.theme='light';}</script>
+<style>
+:root{
+--paper:oklch(0.985 0.004 250);--paper2:oklch(0.963 0.006 250);--sel:oklch(0.935 0.014 255);
+--grid:oklch(0.905 0.019 250);--ink:oklch(0.28 0.03 265);--ink2:oklch(0.475 0.022 265);--ink3:oklch(0.545 0.02 265);
+--rule:oklch(0.882 0.012 265);--blue:oklch(0.47 0.13 258);--red:oklch(0.53 0.15 25);
+--hl:oklch(0.925 0.15 100);--inkhl:oklch(0.25 0.04 260);
+}
+[data-theme="dark"]{
+--paper:oklch(0.262 0.032 258);--paper2:oklch(0.222 0.03 258);--sel:oklch(0.315 0.036 258);
+--grid:oklch(0.325 0.03 258);--ink:oklch(0.94 0.008 250);--ink2:oklch(0.79 0.014 250);--ink3:oklch(0.655 0.02 250);
+--rule:oklch(0.375 0.028 258);--blue:oklch(0.76 0.11 250);--red:oklch(0.72 0.13 30);
+--hl:oklch(0.855 0.15 100);--inkhl:oklch(0.22 0.04 260);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;border-radius:0}
+input,select,textarea{font:inherit;color:inherit;border-radius:0}
+a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--rule)}
+a:hover{border-bottom-color:var(--blue)}
+::selection{background:var(--hl);color:var(--inkhl)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--rule)}
+::-webkit-scrollbar-track{background:transparent}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.app{display:flex;height:100vh;min-height:520px;overflow:hidden}
+nav{flex:0 0 254px;width:254px;background:var(--paper2);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow:auto}
+main{flex:1;min-width:0;overflow:auto}
+.ecra{padding:42px 46px 96px;max-width:1000px}
+.mono{font-family:'IBM Plex Mono',monospace}
+.serif{font-family:'IBM Plex Serif',Georgia,serif}
+h1{font-size:26px;font-weight:500;letter-spacing:-0.012em;margin:0}
+h2{font-size:21px;font-weight:500;margin:0;letter-spacing:-0.01em}
+.sub{margin:6px 0 0;font-size:13.5px;color:var(--ink3)}
+
+.nav-item{position:relative;display:block;width:100%;text-align:left;padding:9px 16px}
+.nav-item:hover{background:var(--sel)}
+.nav-item[aria-current="true"]::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--blue)}
+.nav-item .t{font-size:14.5px}
+.nav-item .n{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink3)}
+.nav-cad{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:8px 16px}
+.barra{grid-column:1/-1;height:2px;background:var(--rule);margin-top:7px}
+.barra span{display:block;height:2px;background:var(--ink2)}
+.nav-rot{padding:16px 16px 6px;font-size:12.5px;color:var(--ink3)}
+.nav-sep{height:1px;background:var(--rule);margin:16px 16px 8px}
+.nav-pe{padding:14px 16px 18px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.selo{background:var(--hl);color:var(--inkhl);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:1px 5px}
+.lnk{font-size:13.5px;border-bottom:1px solid var(--rule);padding-bottom:1px;text-align:left}
+.lnk:hover{border-bottom-color:var(--blue)}
+select{width:100%;background:transparent;border:1px solid var(--rule);padding:6px 8px;font-size:12.5px;color:var(--ink2);font-family:'IBM Plex Mono',monospace}
+
+.b{border:1px solid var(--rule);padding:9px 16px;font-size:14px;display:inline-block}
+.b:hover{border-color:var(--ink3)}
+.b-forte{background:var(--blue);color:var(--paper);padding:9px 16px;font-size:14px;border:1px solid var(--blue);display:inline-block}
+.b-bem{border:1px solid var(--ink2)}
+.b-bem:hover{background:var(--hl);border-color:var(--hl);color:var(--inkhl)}
+.b-mal:hover{border-color:var(--red);color:var(--red)}
+.min{position:relative;border:1px solid var(--rule);padding:6px 13px;font-family:'IBM Plex Mono',monospace;font-size:13.5px}
+.min:hover{border-color:var(--ink3)}
+.min[aria-pressed="true"]::after{content:'';position:absolute;left:-1px;right:-1px;bottom:-1px;height:2px;background:var(--blue)}
+
+.linha{width:100%;text-align:left;display:grid;gap:16px;align-items:baseline;padding:14px 4px;border-bottom:1px solid var(--rule)}
+.linha:hover{background:var(--sel)}
+.marca{background:var(--hl);color:var(--inkhl);box-shadow:0 0 0 3px var(--hl)}
+.grupo{display:flex;align-items:baseline;gap:12px;margin-top:36px}
+.grupo h3{font-size:15px;font-weight:500;margin:0}
+.grupo .r{flex:1;height:1px;background:var(--rule)}
+.foco{margin-top:44px;padding-top:26px;border-top:2px solid var(--ink)}
+.rot{font-size:13px;color:var(--ink3);flex:0 0 78px}
+.chip{border:1px solid var(--rule);padding:3px 8px;font-size:13px;color:var(--ink2)}
+.aviso{margin-top:22px;padding:12px 14px;border-left:2px solid var(--red);background:var(--paper2);display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;max-width:70ch}
+.prosa{font-family:'IBM Plex Serif',Georgia,serif;font-size:16.5px;line-height:1.72;max-width:64ch;text-wrap:pretty}
+.cx{display:block;width:10px;height:10px;border:1px solid var(--ink3)}
+.cx.on{background:var(--ink2);border-color:var(--ink2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:760px){.app{flex-direction:column;height:auto}nav{flex:none;width:100%;border-right:0;border-bottom:1px solid var(--rule)}.ecra{padding:28px 20px 64px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+const api = async (p, opt) => {
+  const r = await fetch(p, opt);
+  const d = await r.json();
+  if (d && d.erro) throw new Error(d.erro);
+  return d;
+};
+const post = (p, body) => api(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' kB';
+const dataCurta = (t) => new Date(t * 1000).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+const NOME = { introdutorio: 'introdutório', intermedio: 'intermédio', avancado: 'avançado',
+  'ficha-exercicios': 'ficha de exercícios', 'guiao-pratico': 'guião prático', slides: 'slides',
+  enunciado: 'enunciado', apontamentos: 'apontamentos', exame: 'exame', administrativo: 'administrativo' };
+const ESTADO = { novo: 'por estudar', 'a-meio': 'a meio', 'a-rever': 'para rever', 'em-dia': 'em dia', ignorar: '—' };
+const pt = (v) => NOME[v] ?? v ?? '';
+
+const app = { nav: null, ecra: 'sessao', slug: null, minutos: Number(localStorage.getItem('caderno.min')) || 45,
+  foco: null, carta: 0, revelada: false, cartas: null, ficha: 0, docConversa: null, msgs: [], gastoConversa: 0,
+  pasta: null };
+
+// ── barra lateral ────────────────────────────────────────────────────────────
+function pintarNav() {
+  const n = app.nav;
+  if (!n) return;
+  const item = (id, titulo, extra, activo) => `
+    <button class="nav-item" data-ir="${id}" aria-current="${activo}">
+      <span class="t">${esc(titulo)}</span>${extra ?? ''}
+    </button>`;
+
+  $('#nav').innerHTML = `
+    <div style="padding:20px 16px 14px">
+      <select id="sem">${n.semestres.map((s) => `<option ${s === n.semestre ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>
+    </div>
+    <button class="nav-item" data-ir="sessao" aria-current="${app.ecra === 'sessao'}">
+      <span class="t" style="font-size:15px">Estudar agora</span>
+      <span class="n" style="display:block;margin-top:2px">${app.minutos} min disponíveis</span>
+    </button>
+    <div class="nav-rot">Cadeiras</div>
+    ${n.cadeiras.map((c) => `
+      <button class="nav-item nav-cad" data-ir="cadeira:${esc(c.slug)}" aria-current="${app.ecra === 'cadeira' && app.slug === c.slug}">
+        <span class="t">${esc(c.nome)}</span>
+        <span class="n">${c.faltam} por estudar</span>
+        <span class="barra"><span style="width:${c.pct}%"></span></span>
+      </button>`).join('')}
+    <div class="nav-sep"></div>
+    ${item('cartas', 'Flashcards', `<span class="n" style="float:right">${n.cartasHoje} hoje</span>`, app.ecra === 'cartas')}
+    ${item('fichas', 'Exercícios', `<span class="n" style="float:right">${n.fichas} fichas</span>`, app.ecra === 'fichas')}
+    ${item('conversa', 'Conversa', null, app.ecra === 'conversa')}
+    ${item('ficheiros', 'Ficheiros', null, app.ecra === 'ficheiros')}
+    <div style="flex:1;min-height:24px"></div>
+    <div class="nav-pe">
+      ${n.novosMoodle ? `<button data-ir="ficheiros" style="display:flex;gap:8px;align-items:baseline;text-align:left">
+        <span class="selo" style="font-size:12px">${n.novosMoodle}</span>
+        <span style="font-size:13.5px">materiais recentes</span></button>` : ''}
+      <button class="lnk" id="sync">Sincronizar com o Moodle</button>
+      <span class="n mono" id="sync-est" style="font-size:11.5px;color:var(--ink3)">${n.ultimoSync ? 'último: ' + new Date(n.ultimoSync * 1000).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado'}</span>
+      <button class="b" id="tema" style="margin-top:4px;padding:6px 11px;font-size:13px;color:var(--ink2)">${document.documentElement.dataset.theme === 'dark' ? 'Modo claro' : 'Modo escuro'}</button>
+    </div>`;
+}
+
+// ── sessão ───────────────────────────────────────────────────────────────────
+async function ecraSessao() {
+  const d = await api(`/api/sessao?minutos=${app.minutos}`);
+  const f = app.foco != null ? d.plano.find((p) => p.id === app.foco) : null;
+  const agora = new Date().toLocaleString('pt-PT', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+
+  $('#main').innerHTML = `<div class="ecra">
+    <div><h1>Sessão de estudo</h1><p class="sub">${agora[0].toUpperCase() + agora.slice(1)}</p></div>
+
+    <div style="margin-top:32px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <span style="font-size:16px">Tens quanto tempo?</span>
+      <div style="display:flex;gap:6px">
+        ${[20, 30, 45, 60, 90].map((m) => `<button class="min" data-min="${m}" aria-pressed="${m === app.minutos}">${m}</button>`).join('')}
+      </div>
+      <span class="mono" style="font-size:12.5px;color:var(--ink3)">min</span>
+    </div>
+
+    ${d.plano.length === 0 ? `
+      <section class="foco" style="max-width:60ch">
+        <h2>Está tudo em dia.</h2>
+        <p style="margin:14px 0 0;font-size:15px;color:var(--ink2);line-height:1.65">
+          O que já estudaste volta sozinho quando for altura de rever. Se quiseres adiantar, as cartas de hoje estão à espera.</p>
+        <div style="display:flex;gap:10px;margin-top:24px"><button class="b-forte" data-ir="cartas">Fazer as cartas de hoje</button></div>
+      </section>` : `
+      <p style="margin:26px 0 0;font-size:15.5px;color:var(--ink2);max-width:60ch">
+        ${d.plano.length === 1 ? 'Uma coisa' : d.plano.length + ' coisas'} para estes ${app.minutos} minutos.
+        ${d.candidatos > d.plano.length ? `Ficam ${d.candidatos - d.plano.length} na fila.` : ''}</p>
+
+      <ol style="list-style:none;margin:16px 0 0;padding:0;border-top:1px solid var(--rule)">
+        ${d.plano.map((p) => `<li><button class="linha" data-foco="${p.id}" style="grid-template-columns:22px minmax(0,1fr) 52px 78px">
+          <span class="mono" style="font-size:13px;color:var(--ink3)">${p.ordem}</span>
+          <span>
+            <span style="font-size:15.5px" class="${p.id === app.foco ? 'marca' : ''}">${esc(p.titulo)}</span>
+            <span style="display:block;font-size:13.5px;color:var(--ink3);margin-top:6px;max-width:56ch;text-wrap:pretty">${esc(p.nota)}</span>
+          </span>
+          <span class="mono" style="font-size:12.5px;color:var(--ink2)">${esc(p.cadeira)}</span>
+          <span class="mono" style="font-size:12.5px;color:var(--ink3);text-align:right">${p.minutos} min</span>
+        </button></li>`).join('')}
+      </ol>`}
+
+    ${f ? `<section class="foco">
+      <div style="display:flex;justify-content:space-between;gap:28px;align-items:baseline;flex-wrap:wrap">
+        <h2>${esc(f.titulo)}</h2>
+        <div class="mono" style="display:flex;gap:20px;font-size:12.5px;color:var(--ink3)">
+          <span>${esc(f.cadeiraLonga)}</span><span>${f.minutos} min</span><span>${pt(f.dificuldade)}</span>
+        </div>
+      </div>
+      <p class="prosa" style="margin:20px 0 0">${esc(f.resumo)}</p>
+      ${f.feitos ? `<p class="mono" style="font-size:12.5px;color:var(--ink3);margin-top:12px">${f.feitos} de ${f.precisa} minutos feitos</p>` : ''}
+
+      ${f.topicos.length ? `<div style="margin-top:22px;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">
+        <span class="rot">Tópicos</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${f.topicos.map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</div>
+      </div>` : ''}
+
+      ${f.perguntas.length ? `<div style="margin-top:24px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <span class="rot" style="padding-top:5px">Perguntas</span>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;max-width:62ch">
+          ${f.perguntas.map((q) => `<li class="serif" style="font-size:15.5px;line-height:1.6;padding-left:14px;border-left:2px solid var(--rule);text-wrap:pretty">${esc(q.pergunta)}</li>`).join('')}
+        </ul></div>` : ''}
+
+      <div style="margin-top:28px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <a class="b-forte" href="/material/${f.id}" target="_blank" rel="noopener" style="border-bottom-color:var(--blue)">Abrir o PDF</a>
+        <button class="b" data-conversa="${f.id}">Perguntar sobre isto</button>
+        <span class="mono" style="font-size:12px;color:var(--ink3)">${esc(f.ficheiro)}</span>
+      </div>
+
+      <div style="margin-top:34px;padding-top:20px;border-top:1px solid var(--rule);display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:15px">Como correu?</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="b b-bem" data-fim="bem" data-id="${f.id}" data-m="${f.minutos}" style="padding:8px 15px">Percebi</button>
+          <button class="b" data-fim="assim" data-id="${f.id}" data-m="${f.minutos}" style="padding:8px 15px">Mais ou menos</button>
+          <button class="b b-mal" data-fim="mal" data-id="${f.id}" data-m="${f.minutos}" style="padding:8px 15px">Não entrei lá</button>
+        </div>
+      </div>
+    </section>` : ''}
+  </div>`;
+}
+
+// ── cadeira ──────────────────────────────────────────────────────────────────
+async function ecraCadeira() {
+  const c = await api(`/api/cadeira?slug=${encodeURIComponent(app.slug)}`);
+  if (!c) return ($('#main').innerHTML = '<div class="ecra"><h1>Cadeira sem material.</h1></div>');
+  const num = (v, r) => `<span style="display:flex;flex-direction:column;gap:3px"><span class="mono" style="font-size:19px">${v}</span><span style="font-size:12.5px;color:var(--ink3)">${r}</span></span>`;
+
+  $('#main').innerHTML = `<div class="ecra">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:28px;flex-wrap:wrap">
+      <div><h1>${esc(c.nome)}</h1><p class="sub mono">${esc(c.slug)}</p></div>
+      <div style="display:flex;gap:30px">${num(c.total, 'materiais')}${num(c.emDia, 'em dia')}${num(c.faltam, 'por estudar')}</div>
+    </div>
+    ${c.prazo ? `<div class="aviso"><span style="font-size:14.5px">${esc(c.prazo.titulo)} — daqui a ${c.prazo.dias} dias.</span></div>` : ''}
+    ${c.grupos.map((g) => `
+      <section>
+        <div class="grupo"><h3>${esc(g.nome)}</h3><span class="mono" style="font-size:12px;color:var(--ink3)">${g.itens.length}</span><span class="r"></span></div>
+        <div style="margin-top:4px">
+          ${g.itens.map((m) => `<button class="linha" data-abrir="${m.id}" style="grid-template-columns:minmax(0,1fr) 74px 128px;padding:11px 4px">
+            <span style="font-size:14.5px;text-wrap:pretty">${esc(m.titulo)}</span>
+            <span class="mono" style="font-size:12.5px;color:var(--ink3);text-align:right">${m.minutos ? m.minutos + ' min' : '—'}</span>
+            <span class="mono" style="font-size:12.5px;color:${m.estado === 'em-dia' ? 'var(--ink3)' : 'var(--ink2)'};text-align:right">${ESTADO[m.estado]}${m.estado === 'em-dia' && m.prox != null ? ' ' + m.prox + 'd' : ''}</span>
+          </button>`).join('')}
+        </div>
+      </section>`).join('')}
+  </div>`;
+}
+
+// ── flashcards ───────────────────────────────────────────────────────────────
+async function ecraCartas() {
+  if (!app.cartas) app.cartas = await api('/api/cartas');
+  const b = app.cartas.baralho;
+  const c = b[app.carta];
+
+  $('#main').innerHTML = `<div class="ecra" style="max-width:800px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+      <div><h1>Flashcards</h1><p class="sub">${app.cartas.devidas} para rever, ${app.cartas.novas} novas · ${app.cartas.total} no total</p></div>
+      ${b.length ? `<div style="min-width:170px">
+        <div class="mono" style="font-size:12px;color:var(--ink3);margin-bottom:5px">${Math.min(app.carta + 1, b.length)} / ${b.length}</div>
+        <div style="height:2px;background:var(--rule)"><span style="display:block;height:2px;background:var(--ink2);width:${(app.carta / b.length) * 100}%"></span></div>
+      </div>` : ''}
+    </div>
+
+    ${!c ? `<section style="margin-top:44px;max-width:52ch">
+      <h2>${b.length ? 'Acabaste as cartas de hoje.' : 'Não há cartas para hoje.'}</h2>
+      <p style="margin:14px 0 0;font-size:15px;color:var(--ink2);line-height:1.65">
+        ${app.cartas.total - b.length > 0 ? `Ficam ${app.cartas.total - b.length} na fila para os próximos dias.` : 'Estudaste tudo o que havia.'}</p>
+      <div style="display:flex;gap:10px;margin-top:24px"><button class="b-forte" data-ir="sessao">Voltar à sessão</button></div>
+    </section>` : `
+    <section style="margin-top:40px">
+      <div class="mono" style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;color:var(--ink3)">
+        <span>${esc(c.cadeira)}</span><span>${esc(c.doc)}</span>
+        ${c.nova ? '<span class="selo">carta nova</span>' : ''}
+      </div>
+      <p class="serif" style="font-size:23px;line-height:1.5;margin:16px 0 0;max-width:52ch;text-wrap:pretty">${esc(c.pergunta)}</p>
+      ${!app.revelada ? `
+        <div style="margin-top:32px">
+          <button class="b-forte" id="revelar" style="padding:10px 18px">Ver a resposta</button>
+          <p style="margin:14px 0 0;font-size:13px;color:var(--ink3)">Responde em voz alta primeiro. Depois compara.</p>
+        </div>` : `
+        <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--rule)">
+          <p class="prosa" style="margin:0">${esc(c.resposta)}</p>
+          <div style="margin-top:30px;display:flex;gap:10px;flex-wrap:wrap">
+            ${[['bem', 'Percebi', 'b-bem'], ['assim', 'Mais ou menos', ''], ['mal', 'Não entrei lá', 'b-mal']].map(([r, txt, cls]) =>
+              `<button class="b ${cls}" data-carta="${r}" style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:9px 16px">${txt}
+                <span class="mono" style="font-size:11.5px;color:var(--ink3)">${esc(c.volta[r])}</span></button>`).join('')}
+          </div>
+        </div>`}
+    </section>`}
+  </div>`;
+}
+
+// ── exercícios ───────────────────────────────────────────────────────────────
+async function ecraFichas() {
+  const fs = await api('/api/fichas');
+  const f = fs[app.ficha];
+  const feitas = JSON.parse(localStorage.getItem('caderno.tarefas') || '{}');
+
+  $('#main').innerHTML = `<div class="ecra">
+    <h1>Exercícios</h1>
+    <p class="sub">${fs.length} fichas. ${fs.filter((x) => x.estado === 'novo').length} por começar.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:32px 40px;margin-top:32px;align-items:flex-start">
+      <div style="flex:1 1 240px;min-width:220px;max-width:300px;border-top:1px solid var(--rule)">
+        ${fs.map((x, i) => `<button class="nav-item" data-ficha="${i}" aria-current="${i === app.ficha}" style="padding:13px 4px 13px 12px;border-bottom:1px solid var(--rule)">
+          <span class="t" style="display:block;font-size:15px">${esc(x.titulo)}</span>
+          <span class="mono" style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:var(--ink3)">
+            <span>${esc(x.cadeira)}</span><span>${ESTADO[x.estado]}</span></span>
+        </button>`).join('')}
+      </div>
+      ${f ? `<div style="flex:1 1 360px;min-width:280px">
+        <div style="display:flex;justify-content:space-between;gap:20px;align-items:baseline;flex-wrap:wrap">
+          <h2 style="font-size:20px">${esc(f.titulo)}</h2>
+          <div class="mono" style="display:flex;gap:18px;font-size:12.5px;color:var(--ink3)">
+            <span>${f.minutos} min</span><span>${f.feitos} feitos</span></div>
+        </div>
+        <p class="prosa" style="font-size:16px;margin:16px 0 0">${esc(f.enunciado)}</p>
+        <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+          <a class="b" href="/material/${f.id}" target="_blank" rel="noopener" style="color:var(--ink)">Abrir o enunciado</a>
+          <button class="b" data-conversa="${f.id}">Perguntar sobre a alínea</button>
+        </div>
+        <div style="margin-top:30px;border-top:1px solid var(--rule)">
+          ${f.tarefas.map((t) => `<button class="linha" data-tarefa="${f.id}:${t.n}" style="grid-template-columns:24px 14px minmax(0,1fr);gap:12px;padding:12px 4px">
+            <span class="mono" style="font-size:12.5px;color:var(--ink3)">${t.n}</span>
+            <span style="position:relative;top:2px"><span class="cx ${feitas[f.id + ':' + t.n] ? 'on' : ''}"></span></span>
+            <span style="font-size:14.5px;line-height:1.55;text-wrap:pretty">${esc(t.texto)}</span>
+          </button>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── conversa ─────────────────────────────────────────────────────────────────
+async function ecraConversa() {
+  const doc = app.docConversa;
+  $('#main').innerHTML = `<div style="display:flex;flex-direction:column;min-height:100%">
+    <div style="padding:26px 46px 16px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;gap:20px;align-items:baseline;flex-wrap:wrap">
+      <div><h1 style="font-size:19px">Conversa</h1>
+        <p class="sub mono">${doc ? 'aberto: ' + esc(doc.titulo) : 'nenhum documento aberto'}</p></div>
+      <span class="mono" style="font-size:12px;color:var(--ink3)">${app.gastoConversa ? 'esta conversa: $' + app.gastoConversa.toFixed(3) : ''}</span>
+    </div>
+    <div style="flex:1;padding:30px 46px 20px;max-width:900px;display:flex;flex-direction:column;gap:28px">
+      ${!doc ? `<p style="font-size:15.5px;color:var(--ink2);max-width:60ch">Escolhe um material na sessão ou nos exercícios e carrega em "Perguntar sobre isto". A conversa é sempre sobre um documento de cada vez — é o que a mantém barata e a impede de inventar.</p>` : ''}
+      ${app.msgs.map((m) => `<div style="display:grid;grid-template-columns:74px minmax(0,1fr);gap:18px;align-items:baseline">
+        <span class="mono" style="font-size:12px;color:var(--ink3)">${esc(m.quem)}</span>
+        <p style="margin:0;font-size:15.5px;line-height:1.68;max-width:64ch;text-wrap:pretty;white-space:pre-wrap">${esc(m.texto)}</p>
+      </div>`).join('')}
+    </div>
+    ${doc ? `<div style="position:sticky;bottom:0;background:var(--paper);border-top:1px solid var(--rule);padding:16px 46px 22px">
+      <div style="display:flex;gap:10px;max-width:900px">
+        <input id="pergunta" placeholder="Pergunta sobre este documento" style="flex:1;min-width:0;background:transparent;border:1px solid var(--rule);padding:10px 12px;font-size:14.5px">
+        <button class="b-forte" id="enviar" style="padding:10px 18px">Perguntar</button>
+      </div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink3);max-width:70ch">Responde a partir deste documento. Se não estiver lá, diz que não está.</p>
+    </div>` : ''}
+  </div>`;
+  $('#pergunta')?.focus();
+}
+
+// ── ficheiros ────────────────────────────────────────────────────────────────
+async function ecraFicheiros() {
+  const arv = await api('/api/arvore');
+  if (!app.pasta && arv[0]?.categorias.length) app.pasta = { slug: arv[0].slug, cat: arv[0].categorias[0] };
+  const l = app.pasta ? await api(`/api/ficheiros?slug=${encodeURIComponent(app.pasta.slug)}&categoria=${encodeURIComponent(app.pasta.cat)}`) : { caminho: '', ficheiros: [] };
+
+  $('#main').innerHTML = `<div class="ecra">
+    <h1>Ficheiros</h1>
+    <p class="sub mono">${esc(l.caminho)}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:32px 40px;margin-top:30px;align-items:flex-start">
+      <div style="flex:1 1 220px;min-width:200px;max-width:268px">
+        ${arv.map((c) => `<div>
+          <div style="display:flex;gap:9px;align-items:baseline;padding:8px 4px">
+            <span class="mono" style="font-size:12px;color:var(--ink3);width:10px">–</span>
+            <span style="font-size:14.5px">${esc(c.nome)}</span></div>
+          <div style="margin:2px 0 6px 23px;border-left:1px solid var(--rule)">
+            ${c.categorias.map((cat) => `<button class="nav-item" data-pasta="${esc(c.slug)}:${esc(cat)}"
+              aria-current="${!!(app.pasta && app.pasta.slug === c.slug && app.pasta.cat === cat)}" style="padding:7px 4px 7px 12px">
+              <span style="font-size:14px;color:var(--ink2)">${esc(cat)}</span></button>`).join('')}
+          </div></div>`).join('')}
+      </div>
+      <div style="flex:1 1 380px;min-width:280px">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px 16px;padding:0 4px 8px;border-bottom:1px solid var(--ink);font-size:12.5px;color:var(--ink3)">
+          <span>Nome</span><span style="text-align:right;min-width:62px">Tamanho</span><span style="text-align:right;min-width:52px">Chegou</span>
+        </div>
+        ${l.ficheiros.length ? l.ficheiros.map((f) => `
+          <a class="linha" href="${f.id ? '/material/' + f.id : '#'}" target="_blank" rel="noopener"
+             style="grid-template-columns:minmax(0,1fr) auto auto;gap:6px 16px;padding:11px 4px;color:var(--ink)">
+            <span style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;min-width:0">
+              <span style="font-size:14.5px;line-height:1.45;text-wrap:pretty">${esc(f.nome)}</span>
+              ${f.novo ? '<span class="selo">novo</span>' : ''}</span>
+            <span class="mono" style="font-size:12.5px;color:var(--ink3);text-align:right;white-space:nowrap">${kb(f.tamanho)}</span>
+            <span class="mono" style="font-size:12.5px;color:var(--ink3);text-align:right;white-space:nowrap">${dataCurta(f.data)}</span>
+          </a>`).join('') : `<div style="padding:40px 4px;max-width:46ch">
+            <p style="margin:0;font-size:15.5px">Esta pasta ainda não tem nada.</p>
+            <button class="b-forte" id="sync2" style="margin-top:14px">Ir buscar ao Moodle</button></div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── router ───────────────────────────────────────────────────────────────────
+const ECRAS = { sessao: ecraSessao, cadeira: ecraCadeira, cartas: ecraCartas, fichas: ecraFichas, conversa: ecraConversa, ficheiros: ecraFicheiros };
+
+async function pintar() {
+  try {
+    app.nav = await api('/api/nav');
+    pintarNav();
+    await ECRAS[app.ecra]();
+  } catch (e) {
+    $('#main').innerHTML = `<div class="ecra"><h1>Alguma coisa correu mal.</h1><p class="sub">${esc(e.message)}</p></div>`;
+  }
+}
+
+function ir(destino) {
+  if (location.hash.slice(1) !== destino) { location.hash = destino; return; }
+  aplicarHash();
+}
+
+function aplicarHash() {
+  const [ecra, arg] = (location.hash.slice(1) || 'sessao').split(':');
+  if (!ECRAS[ecra]) return;
+  app.ecra = ecra;
+  if (ecra === 'cadeira') app.slug = arg;
+  if (ecra === 'cartas') { app.cartas = null; app.carta = 0; app.revelada = false; }
+  pintar();
+}
+addEventListener('hashchange', aplicarHash);
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-ir],[data-min],[data-foco],[data-fim],[data-carta],[data-ficha],[data-tarefa],[data-abrir],[data-conversa],[data-pasta],#revelar,#tema,#sync,#sync2,#enviar');
+  if (!el) return;
+  const d = el.dataset;
+
+  if (d.ir) return ir(d.ir);
+  if (d.min) { app.minutos = Number(d.min); localStorage.setItem('caderno.min', app.minutos); app.foco = null; return pintar(); }
+  if (d.foco) { app.foco = app.foco === Number(d.foco) ? null : Number(d.foco); return pintar(); }
+  if (d.abrir) { app.foco = Number(d.abrir); return ir('sessao'); }
+  if (d.ficha) { app.ficha = Number(d.ficha); return pintar(); }
+
+  if (d.fim) {
+    await post('/api/estudei', { id: Number(d.id), minutos: Number(d.m), resultado: d.fim });
+    app.foco = null;
+    return pintar();
+  }
+
+  if (el.id === 'revelar') { app.revelada = true; return ecraCartas(); }
+  if (d.carta) {
+    const c = app.cartas.baralho[app.carta];
+    await post('/api/carta', { file_id: c.file_id, idx: c.idx, resultado: d.carta });
+    app.carta++; app.revelada = false;
+    return ecraCartas();
+  }
+
+  if (d.tarefa) {
+    const f = JSON.parse(localStorage.getItem('caderno.tarefas') || '{}');
+    f[d.tarefa] = !f[d.tarefa];
+    localStorage.setItem('caderno.tarefas', JSON.stringify(f));
+    return ecraFichas();
+  }
+
+  if (d.conversa) {
+    const sess = await api('/api/sessao?minutos=600');
+    const doc = sess.plano.find((p) => p.id === Number(d.conversa));
+    app.docConversa = { id: Number(d.conversa), titulo: doc?.titulo ?? 'documento' };
+    app.msgs = []; app.gastoConversa = 0;
+    return ir('conversa');
+  }
+
+  if (d.pasta) { const [slug, cat] = d.pasta.split(':'); app.pasta = { slug, cat }; return ecraFicheiros(); }
+
+  if (el.id === 'tema') {
+    const novo = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = novo;
+    localStorage.setItem('caderno.tema', novo);
+    return pintarNav();
+  }
+
+  if (el.id === 'sync' || el.id === 'sync2') {
+    const est = $('#sync-est');
+    if (est) est.textContent = 'a sincronizar…';
+    await post('/api/sync', {});
+    const timer = setInterval(async () => {
+      const s = await api('/api/sync');
+      if (est) est.textContent = (s.linhas.at(-1) ?? 'a sincronizar…').slice(0, 34);
+      if (s.terminado) { clearInterval(timer); pintar(); }
+    }, 1500);
+    return;
+  }
+
+  if (el.id === 'enviar') return enviarPergunta();
+});
+
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'sem') return;
+  await post('/api/semestre', { semestre: e.target.value });
+  app.cartas = null; app.foco = null;
+  pintar();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'pergunta') enviarPergunta();
+});
+
+async function enviarPergunta() {
+  const campo = $('#pergunta');
+  const texto = campo?.value.trim();
+  if (!texto || !app.docConversa) return;
+  const historico = app.msgs.slice();
+  app.msgs.push({ quem: 'tu', texto });
+  app.msgs.push({ quem: '…', texto: 'a pensar' });
+  await ecraConversa();
+  try {
+    const r = await post('/api/conversa', { id: app.docConversa.id, pergunta: texto, historico });
+    app.msgs.pop();
+    app.msgs.push({ quem: 'caderno', texto: r.texto });
+    app.gastoConversa += r.custo;
+  } catch (err) {
+    app.msgs.pop();
+    app.msgs.push({ quem: 'erro', texto: err.message });
+  }
+  await ecraConversa();
+}
+
+aplicarHash();
+</script>
+</body>
+</html>

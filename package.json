@@ -1,0 +1,35 @@
+{
+  "name": "app-estudos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "probe": "node scripts/moodle-probe.mjs",
+    "course": "node scripts/course.mjs",
+    "sync": "node scripts/sync.mjs",
+    "test": "node test.mjs && node test-product.mjs",
+    "analyze": "node scripts/analyze.mjs",
+    "serve": "node scripts/product.mjs",
+    "start": "node scripts/product.mjs",
+    "legacy:serve": "node scripts/serve.mjs",
+    "build": "node scripts/check-project.mjs build",
+    "lint": "node scripts/check-project.mjs lint",
+    "typecheck": "node scripts/check-project.mjs typecheck"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "nodemailer": "^10.0.11",
+    "stripe": "^22.6.2",
+    "unpdf": "^1.8.1",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/nodemailer": "^8.0.2",
+    "playwright-core": "^1.63.0",
+    "typescript": "^7.0.2"
+  }
+}
