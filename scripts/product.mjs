@@ -303,7 +303,7 @@ const routes = {
   'POST /api/analyze': async (req, res) => {
     const user = requireUser(req);
     const data = await jsonBody(req);
-    send(res, await queueAi(user.id, () => analyzeFile(db, user.id, data.fileId)));
+    send(res, await queueAi(user.id, () => analyzeFile(db, user.id, data.fileId, { force: data.force === true })));
   },
   'POST /api/analyze-pending': async (req, res) => {
     const user = requireUser(req);

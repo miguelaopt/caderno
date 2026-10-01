@@ -21,7 +21,12 @@ db.prepare("INSERT INTO deadlines(id,user_id,course_id,kind,title,due_at,source)
   .run(id(), userId, courseId, 'Entrega do projeto', now + 5 * 86400);
 const examples = [
   { name: 'Introdução ao modelo relacional.pdf', summary: 'Aprende a organizar dados em tabelas, definir chaves e reconhecer relações entre entidades.',
-    topics: ['Modelo relacional', 'Chaves primárias', 'Relações'], type: 'slides', minutes: 40 },
+    topics: ['Modelo relacional', 'Chaves primárias', 'Relações'], type: 'slides', minutes: 40,
+    keyPoints: ['Cada tabela representa uma entidade e cada linha um registo.', 'A chave primária identifica cada linha sem repetições.',
+      'As chaves estrangeiras ligam tabelas e mantêm a integridade.', 'Relações 1:N resolvem-se com a chave do lado 1 no lado N.'],
+    concepts: [{ termo: 'Chave primária', definicao: 'Atributo ou conjunto de atributos que identifica cada linha.' },
+      { termo: 'Chave estrangeira', definicao: 'Atributo que referencia a chave primária de outra tabela.' },
+      { termo: 'Cardinalidade', definicao: 'Quantas ocorrências de uma entidade se ligam a outra.' }] },
   { name: 'Ficha 04 — normalização.pdf', summary: 'Pratica dependências funcionais e a passagem de tabelas à terceira forma normal.',
     topics: ['Dependências funcionais', '3.ª forma normal'], type: 'ficha-exercicios', minutes: 45 },
   { name: 'Casos de uso.pdf', summary: 'Identifica atores, objetivos e cenários para descrever requisitos de um sistema.',
@@ -34,7 +39,7 @@ for (const [index, example] of examples.entries()) {
   db.prepare('UPDATE files SET text_status=?,changed_at=?,first_seen_at=? WHERE id=?')
     .run('ok', now - index * 7200, now - index * 7200, file.id);
   db.prepare('INSERT INTO analyses(file_id,hash,model,summary,topics_json,questions_json,created_at) VALUES(?,?,?,?,?,?,?)')
-    .run(file.id, hash, 'demo', example.summary, JSON.stringify({ topicos: example.topics,
+    .run(file.id, hash, 'demo', example.summary, JSON.stringify({ topicos: example.topics, pontos_chave: example.keyPoints, conceitos: example.concepts,
       minutos_estudo: example.minutes, tipo: example.type }), JSON.stringify([{ pergunta: 'Como aplicarias este conceito?', resposta: 'Começa por identificar os elementos do problema.' }]), now);
   if (index === 0) db.prepare('INSERT INTO study_log(id,user_id,file_id,studied_at,minutes,result) VALUES(?,?,?,?,?,?)')
     .run(id(), userId, file.id, now - 86400, 15, 'assim');

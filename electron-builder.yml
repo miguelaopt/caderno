@@ -16,11 +16,22 @@ win:
       arch:
         - x64
   artifactName: Caderno-${version}-Windows-${arch}.${ext}
+# Imagens em build/, geradas por scripts/installer-art.mjs.
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Caderno
+  uninstallDisplayName: Caderno
   runAfterFinish: true
+  installerLanguages: [pt_PT]
+  language: "2070"
+  installerIcon: web/icon.ico
+  uninstallerIcon: web/icon.ico
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/installerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
 # Gera latest.yml e app-update.yml para as atualizações automáticas (electron-updater).
 # O upload é feito pelo workflow Windows desktop, não pelo electron-builder.
 publish:

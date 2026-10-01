@@ -20,6 +20,10 @@ let syncPoll = null;
 let explanationAnswer = null;
 let explanationCourse = null;
 let explanationFile = null;
+let explanationLoading = null;
+let explanationError = null;
+// Pedidos demorados em curso (IA, análise) e quando começaram, para mostrar o tempo que já passou.
+const busy = new Map();
 let practiceDeck = null;
 let practiceCourse = null;
 let practiceIndex = 0;
@@ -87,6 +91,81 @@ function openButton(file, label = '', className = 'button') {
   if (state.desktop && file && !isPdf(file)) return `<button class="${className}" data-open-file="${file.id}">${label || 'Abrir no Windows'}</button>`;
   return `<a class="${className}" href="${materialHref(file?.id)}" target="_blank" rel="noopener">${label || (file && !isPdf(file) ? 'Descarregar' : 'Abrir PDF')}</a>`;
 }
+// Markdown simples das respostas da IA. O texto é escapado antes de qualquer marcação.
+function md(text, citations = []) {
+  const refs = new Map(citations.map((citation) => [citation.ref, citation]));
+  const inline = (line) => line
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])[*_]([^*_\s][^*_]*?)[*_](?=[\s).,;:!?]|$)/g, '$1<em>$2</em>')
+    .replace(/\s?\[(\d+(?:\s*[,;]\s*\d+)*)\]/g, (_, list) => list.split(/[,;]/).map((n) => refs.get(Number(n))).filter(Boolean)
+      .map((citation) => ` <a class="cite" href="${materialHref(citation.fileId, citation.page)}" target="_blank" rel="noopener" title="Abrir ${esc(citation.filename)} na página ${citation.page}">p.&nbsp;${citation.page}</a>`).join(''));
+  const html = [];
+  let list = null, code = null, para = [];
+  const closePara = () => { if (para.length) html.push(`<p>${inline(para.join(' '))}</p>`); para = []; };
+  const closeList = () => { if (list) html.push(`</${list}>`); list = null; };
+  for (const raw of esc(text).split('\n')) {
+    if (code) { if (raw.trim().startsWith('```')) { html.push(`<pre><code>${code.slice(1).join('\n')}</code></pre>`); code = null; } else code.push(raw); continue; }
+    const line = raw.trim();
+    const heading = line.match(/^#{1,4}\s+(.*)/), bullet = line.match(/^[-*•]\s+(.*)/), numbered = line.match(/^\d+[.)]\s+(.*)/);
+    if (line.startsWith('```')) { closePara(); closeList(); code = ['']; }
+    else if (!line) { closePara(); closeList(); }
+    else if (heading) { closePara(); closeList(); html.push(`<h3>${inline(heading[1].replace(/\*\*/g, ''))}</h3>`); }
+    else if (bullet || numbered) {
+      const tag = bullet ? 'ul' : 'ol';
+      closePara();
+      if (list !== tag) { closeList(); html.push(`<${tag}>`); list = tag; }
+      html.push(`<li>${inline((bullet || numbered)[1])}</li>`);
+    } else { closeList(); para.push(line); }
+  }
+  if (code) html.push(`<pre><code>${code.slice(1).join('\n')}</code></pre>`);
+  closePara(); closeList();
+  return html.join('');
+}
+const plainAnswer = (text) => String(text).replace(/\s?\[\d+(?:\s*[,;]\s*\d+)*\]/g, '');
+
+const typeLabels = { slides: 'Diapositivos', 'ficha-exercicios': 'Ficha de exercícios', apontamentos: 'Apontamentos', exame: 'Exame', outro: 'Documento' };
+function analysisOf(file) {
+  let data = {};
+  try { data = JSON.parse(file?.topics_json || '{}') || {}; } catch {}
+  return { topics: data.topicos || [], keyPoints: data.pontos_chave || [], concepts: data.conceitos || [], minutes: data.minutos_estudo, type: data.tipo };
+}
+
+// O resumo de um PDF: frase de abertura, o que reter, conceitos com definição e tópicos.
+function digest(file, { topicButtons = false, redoHint = true } = {}) {
+  const info = analysisOf(file);
+  const meta = [typeLabels[info.type], file.page_count ? `${file.page_count} páginas` : '', info.minutes ? `cerca de ${info.minutes} min de estudo` : ''].filter(Boolean);
+  const canRedo = redoHint && state.ai?.configured && state.ai?.consented;
+  return `<div class="digest">${meta.length ? `<p class="meta">${meta.join(' · ')}</p>` : ''}
+    <p class="digest-lead">${esc(file.summary)}</p>
+    ${info.keyPoints.length || info.concepts.length ? `<div class="digest-grid">
+      ${info.keyPoints.length ? `<section><h3>A reter</h3><ul class="keypoints">${info.keyPoints.map((point) => `<li>${esc(point)}</li>`).join('')}</ul></section>` : ''}
+      ${info.concepts.length ? `<section><h3>Conceitos</h3><dl class="concepts">${info.concepts.map((concept) => `<div><dt>${esc(concept.termo)}</dt><dd>${esc(concept.definicao)}</dd></div>`).join('')}</dl></section>` : ''}</div>`
+      : canRedo ? `<p class="hint">Este resumo é da versão anterior. <button class="link-button" data-analyze="${file.id}" data-force="true">Refazer o resumo</button> para teres os pontos a reter e os conceitos com definição.</p>` : ''}
+    ${info.topics.length ? `<div class="tags">${info.topics.map((topic) => topicButtons
+      ? `<button class="tag" data-explain-topic="${esc(topic)}" title="Pedir uma explicação deste tópico">${esc(topic)}</button>`
+      : `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</div>`;
+}
+
+async function whileBusy(key, work) {
+  if (busy.has(key)) return;
+  busy.set(key, Date.now()); render();
+  try { return await work(); }
+  finally { busy.delete(key); render(); }
+}
+const loadingBlock = (text, key, lines = 3) => `<div class="loading-block" role="status"><p class="loading-line">${text}<span class="elapsed" aria-hidden="true" data-since="${busy.get(key) || Date.now()}"></span></p>
+  <div class="skeleton" aria-hidden="true">${'<span></span>'.repeat(lines)}</div></div>`;
+setInterval(() => {
+  for (const element of document.querySelectorAll('[data-since]')) {
+    const seconds = Math.floor((Date.now() - Number(element.getAttribute('data-since'))) / 1000);
+    element.textContent = seconds >= 2 ? `${seconds} s` : '';
+  }
+}, 1000);
+const analyzing = (id) => busy.has(`analyze:${id}`);
+const summaryLoading = (id) => loadingBlock('A ler o PDF e a criar o resumo, os conceitos e as perguntas. Costuma demorar 10 a 40 segundos.', `analyze:${id}`, 4);
+
+const helpNote = (title, items) => `<details class="help"><summary>${title}</summary><ul>${items.map((item) => `<li>${item}</li>`).join('')}</ul></details>`;
+
 const revealButton = (file) => state.desktop ? `<button data-open-file="${file.id}" data-reveal="true">Mostrar na pasta</button>` : '';
 
 function auth() {
@@ -115,7 +194,7 @@ function shell(content) {
     <main class="app-main" tabindex="-1">${content}</main></div>`;
 }
 
-const syncNotice = (text) => state.sync?.status === 'running' ? `<p class="notice" role="status">${text}</p>` : '';
+const syncNotice = (text) => state.sync?.status === 'running' ? `<div class="notice" role="status"><p class="loading-line">${text}</p></div>` : '';
 const dayLabel = (seconds) => {
   const date = new Date(seconds * 1000);
   return `<time datetime="${date.toISOString().slice(0, 10)}"><b>${date.getDate()}</b>${date.toLocaleDateString('pt-PT', { month: 'short' }).replace('.', '')}</time>`;
@@ -222,7 +301,7 @@ function files() {
       <p class="hint">PDF, Office, OpenDocument, texto, EPUB ou ZIP, até 20 MB. Só os PDFs são analisados pela IA.</p></section>
     <section class="panel"><h2>Perguntar à cadeira</h2><p class="muted">Respostas só a partir dos PDFs, com o ficheiro e a página.</p>
       ${state.ai?.consented && state.ai?.configured ? `<form id="ask-form"><label>Pergunta<input name="question" required minlength="4" maxlength="1000" placeholder="Ex.: Como se aplica este conceito?"></label><button class="primary">Perguntar</button></form>
-      ${answer ? `<div class="answer"><p>${esc(answer.answer)}</p>${citationsHtml(answer)}</div>` : ''}` : '<p class="hint">Configura a IA nas Definições para fazer perguntas.</p>'}</section>
+      ${busy.has('ask') ? loadingBlock('A procurar nos PDFs da cadeira e a preparar a resposta…', 'ask') : answer ? answerHtml(answer) : ''}` : '<p class="hint">Configura a IA nas Definições para fazer perguntas.</p>'}</section>
     ${state.desktop ? `<section class="panel"><h2>No computador</h2><p class="muted">Os ficheiros estão em <span class="path">${esc(state.materialsDir)}</span>, numa pasta por cadeira.</p></section>` : ''}</div></div>`}`);
   updateMaterialFilter();
 }
@@ -251,14 +330,18 @@ function detail() {
     ${file.text_status === 'vazio' ? '<p class="notice">Este PDF não tem texto selecionável. Pode ser uma digitalização que precisa de OCR.</p>' : ''}
     ${file.text_status === 'falhou' ? '<p class="notice error">Falhou a extração de texto. Tenta sincronizar novamente ou abre o PDF para estudar diretamente.</p>' : ''}
     ${file.text_status === 'sem-extracao' ? `<p class="notice">Este documento está guardado na pasta da cadeira. ${state.desktop ? 'Usa Abrir no Windows para o abrir com o programa do computador.' : 'Descarrega-o para o abrir.'} A extração de texto e a IA só existem para PDFs.</p>` : ''}
-    <div class="split"><section class="panel"><h2>Resumo</h2><p>${esc(file.summary || (isPdf(file) ? 'Ainda não há resumo. O PDF continua disponível para estudar.' : 'Este formato não tem resumo automático.'))}</p>
-      ${canAsk ? `<div class="row"><button data-simple="${file.id}" data-course="${file.course_id}">Explicar de forma simples</button>${!file.summary ? `<button class="primary" data-analyze="${file.id}">Criar resumo com IA</button>` : ''}</div>` : ''}
-      ${file.topics?.length ? `<h3>Conceitos principais</h3><div class="tags">${file.topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}
-      ${answer ? `<div class="answer"><p>${esc(answer.answer)}</p>${citationsHtml(answer)}</div>` : ''}
+    <section class="panel summary-panel"><div class="panel-head"><h2>Resumo</h2>
+      ${canAsk && file.summary ? `<div class="row tight"><button class="small" data-explain-file="${file.id}">Pedir uma explicação</button><button class="small" data-analyze="${file.id}" data-force="true" ${analyzing(file.id) ? 'disabled' : ''}>Refazer resumo</button></div>` : ''}</div>
+      ${analyzing(file.id) ? summaryLoading(file.id) : file.summary ? digest(file) : `<p class="muted">${isPdf(file) ? 'Ainda não há resumo. O PDF continua disponível para estudar.' : 'Este formato não tem resumo automático.'}</p>
+        ${canAsk ? `<p class="hint">O resumo traz o essencial do PDF, os conceitos com definição e perguntas para o Treino e os Flashcards.</p><button class="primary" data-analyze="${file.id}">Criar resumo com IA</button>` : ''}`}
       ${file.text_preview && file.text_status === 'ok' ? `<details class="extracted-text"><summary>Ver texto extraído (${file.page_count || 0} páginas)</summary><pre>${esc(file.text_preview)}${file.text_preview.length >= 8000 ? '\n…' : ''}</pre></details>` : ''}</section>
-      <section class="panel"><h2>Praticar</h2>${file.questions?.length ? `<div class="questions">${file.questions.map((question, index) => `<details><summary>${esc(question.pergunta)}</summary><p><strong>Resposta:</strong> ${esc(question.resposta)}</p>
+    <div class="split"><section class="panel"><h2>Praticar</h2>${file.questions?.length ? `<p class="muted">Tenta responder antes de abrires a resposta.</p><div class="questions">${file.questions.map((question, index) => `<details><summary>${esc(question.pergunta)}</summary><p><strong>Resposta:</strong> ${esc(question.resposta)}</p>
         ${question.explicacao ? `<p class="muted">${esc(question.explicacao)}</p>` : ''}
-        <div class="row"><button data-quiz="${file.id}" data-index="${index}" data-correct="false">Preciso de rever</button><button data-quiz="${file.id}" data-index="${index}" data-correct="true">Consegui</button></div></details>`).join('')}</div>` : '<p class="empty-inline">As perguntas aparecem depois de criares o resumo com IA.</p>'}</section></div>`);
+        <div class="row"><button data-quiz="${file.id}" data-index="${index}" data-correct="false">Preciso de rever</button><button data-quiz="${file.id}" data-index="${index}" data-correct="true">Consegui</button></div></details>`).join('')}</div>` : '<p class="empty-inline">As perguntas aparecem depois de criares o resumo com IA.</p>'}</section>
+      <section class="panel"><h2>Perguntar a este PDF</h2>${canAsk ? `<form id="detail-ask-form"><label>A tua dúvida<textarea name="question" rows="3" required minlength="4" maxlength="1000" placeholder="Ex.: Porque é que esta regra é necessária?"></textarea></label>
+        <button class="primary" ${busy.has('detail-ask') ? 'disabled' : ''}>Perguntar</button></form>
+        ${busy.has('detail-ask') ? loadingBlock('A ler as páginas deste PDF e a preparar a resposta…', 'detail-ask') : answer ? answerHtml(answer) : '<p class="hint">A resposta usa só este PDF e indica as páginas. Para resumos por partes, glossários ou exemplos, usa Explicações.</p>'}`
+        : '<p class="hint">Configura e autoriza a IA nas Definições para fazer perguntas sobre este PDF.</p>'}</section></div>`);
 }
 
 async function loadCards() {
@@ -277,6 +360,9 @@ function cards() {
   const deck = cardDeck?.cards || [];
   const card = deck[cardIndex];
   shell(`${pageHead('Flashcards', `${cardDeck?.totalDue || 0} cartas para rever hoje. Cada carta volta quando for altura de a rever.`)}
+    ${helpNote('Como funcionam os flashcards', ['Lê a pergunta e responde de cabeça, em voz alta ou num papel, antes de mostrares a resposta.',
+      '<strong>Percebi</strong> afasta a carta cada vez mais: 1, 3, 7, 16 e depois 35 dias. <strong>Quase</strong> e <strong>Ainda não</strong> trazem-na de volta amanhã.',
+      'Poucas cartas todos os dias rendem mais do que muitas na véspera do exame.'])}
     <fieldset class="chips"><legend>Cadeiras deste baralho</legend><button type="button" data-action="cards-all" aria-pressed="${cardCourseIds.size === 0}">Todas</button>
       ${courses.map((course) => `<label class="checkbox-label"><input type="checkbox" data-card-course="${course.id}" ${cardCourseIds.has(course.id) ? 'checked' : ''}>${esc(course.name)}</label>`).join('')}</fieldset>
     ${card ? `<section class="panel study-card"><p class="meta">${esc(card.course)} · ${esc(card.filename)} · ${cardIndex + 1} de ${deck.length}</p>
@@ -286,16 +372,50 @@ function cards() {
       : needsAnalysis(cardDeck?.totalDue === 0 && deck.length === 0 ? 'Não há cartas para rever hoje.' : 'Ainda não há cartas.')}`);
 }
 
-const explainPrompts = {
-  simples: 'Explica as ideias principais deste PDF de forma simples, sem perder os conceitos essenciais.',
-  exemplo: 'Dá um exemplo prático e explica passo a passo como aplicar o conceito principal deste PDF.',
-  feynman: 'Ajuda-me a estudar pelo método Feynman: explica a ideia principal de forma clara e faz uma pergunta para eu a ensinar por palavras minhas.',
-  exame: 'Que pontos deste PDF devo dominar para uma prova e como os distinguir de erros comuns?',
+// [título, quando usar, pedido enviado à IA]
+const explainApproaches = {
+  resumo: ['Resumo por partes', 'O PDF pela ordem das páginas, com o essencial de cada parte.',
+    'Faz um resumo estruturado deste PDF pela ordem das páginas: um título (##) por parte, os pontos essenciais em lista e os termos-chave a negrito. Termina com uma secção «Para recordar» com 3 ideias.'],
+  simples: ['Explicação simples', 'As ideias principais sem jargão, como a um colega.',
+    'Explica as ideias principais deste PDF de forma simples, sem perder os conceitos essenciais. Usa uma analogia do dia a dia quando ajudar.'],
+  exemplo: ['Exemplo prático', 'Um caso concreto, resolvido passo a passo.',
+    'Dá um exemplo prático e explica passo a passo, numa lista numerada, como aplicar o conceito principal deste PDF.'],
+  glossario: ['Glossário', 'Os termos técnicos com uma definição curta e como se ligam.',
+    'Faz um glossário dos termos técnicos deste PDF: cada termo a negrito com uma definição de uma frase. No fim, explica numa secção curta como os termos se relacionam.'],
+  exame: ['Preparar a prova', 'O que deves dominar e os erros mais comuns.',
+    'Que pontos deste PDF devo dominar para uma prova? Para cada um, indica o que costuma ser pedido e um erro comum a evitar.'],
+  feynman: ['Método Feynman', 'Uma explicação clara e uma pergunta para explicares tu.',
+    'Ajuda-me a estudar pelo método Feynman: explica a ideia principal de forma clara e termina com uma pergunta para eu a ensinar por palavras minhas.'],
 };
 
 function citationsHtml(result) {
-  return result?.citations?.length ? `<div class="sources"><strong>Fontes</strong>${result.citations.map((citation) =>
-    `<a href="${materialHref(citation.fileId, citation.page)}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page}</a>`).join('')}</div>` : '';
+  const seen = new Set();
+  const pages = (result?.citations || []).filter((citation) => !seen.has(`${citation.fileId}:${citation.page}`) && seen.add(`${citation.fileId}:${citation.page}`));
+  const oneFile = pages.every((citation) => citation.fileId === pages[0]?.fileId);
+  return pages.length ? `<div class="sources"><h3>Páginas citadas${oneFile ? ` de ${esc(pages[0].filename)}` : ''}</h3><ul>${pages.map((citation) =>
+    `<li><a href="${materialHref(citation.fileId, citation.page)}" target="_blank" rel="noopener"><b>p. ${citation.page}</b>${oneFile ? '' : ` ${esc(citation.filename)}`}</a></li>`).join('')}</ul></div>` : '';
+}
+const answerHtml = (result) => `<div class="answer prose">${md(result.answer, result.citations)}${citationsHtml(result)}</div>`;
+
+function explanationPane(file) {
+  if (busy.has('explain')) return `<section class="panel reading" id="explanation" aria-busy="true">
+    <div class="reading-head"><div><p class="meta">${esc(file?.filename)}</p><h2>${esc(explanationLoading)}</h2></div></div>
+    ${loadingBlock('A ler as páginas do PDF e a preparar a explicação. Pode demorar até um minuto.', 'explain', 6)}</section>`;
+  if (explanationError) return `<section class="panel reading" id="explanation" tabindex="-1">
+    <div class="reading-head"><div><p class="meta">${esc(file?.filename)}</p><h2>${esc(explanationError.label)}</h2></div></div>
+    <p class="notice error" role="alert">${esc(explanationError.message)}</p>
+    <p class="hint">Se o erro fala da chave, do modelo ou do saldo, confirma-os nas Definições. Se a resposta ficou cortada, tenta uma pergunta mais pequena.</p>
+    <div class="row"><button data-screen="settings">Abrir Definições</button></div></section>`;
+  if (explanationAnswer) return `<section class="panel reading" id="explanation" tabindex="-1">
+    <div class="reading-head"><div><p class="meta">${esc(explanationAnswer.filename)}</p><h2>${esc(explanationAnswer.label)}</h2></div>
+      <button class="small" data-action="copy-explanation">Copiar texto</button></div>
+    <div class="prose">${md(explanationAnswer.answer, explanationAnswer.citations)}</div>${citationsHtml(explanationAnswer)}
+    <p class="hint">As marcas «p.» abrem o PDF na página de onde veio cada parte. Confirma no material antes de estudares por aqui.</p></section>`;
+  return `<section class="panel reading reading-empty"><h2>A explicação aparece aqui</h2>
+    <ol class="tips"><li><span><strong>Começa pelo resumo por partes</strong> para teres o mapa do PDF.</span></li>
+      <li><span><strong>Usa o exemplo prático ou o glossário</strong> quando um conceito não fizer sentido.</span></li>
+      <li><span><strong>Acaba com o método Feynman</strong> e responde por palavras tuas no Treino.</span></li></ol>
+    <p class="hint">Cada explicação usa só as páginas deste PDF e indica de onde veio cada parte.</p></section>`;
 }
 
 function explanations() {
@@ -305,19 +425,26 @@ function explanations() {
   const files = state.files.filter((file) => file.course_id === explanationCourse && file.text_status === 'ok');
   const canExplain = Boolean(state.ai?.configured && state.ai?.consented);
   if (!files.some((file) => file.id === explanationFile)) explanationFile = files[0]?.id || null;
-  shell(`${pageHead('Explicações', 'Escolhe um PDF, pede uma explicação e abre a página citada para confirmar.')}
-    ${state.analysis?.running ? `<p class="notice" role="status">A criar resumos e perguntas. Faltam ${state.analysis.pending} PDF(s); esta página atualiza-se sozinha.</p>` : ''}
+  const file = fileById(explanationFile);
+  const disabled = canExplain && !busy.has('explain') ? '' : 'disabled';
+  shell(`${pageHead('Explicações', 'Escolhe um PDF e a forma de explicação. A resposta usa só esse PDF e liga cada parte à página de onde veio.')}
+    ${state.analysis?.running ? `<div class="notice" role="status"><p class="loading-line">A criar resumos e perguntas. Faltam ${state.analysis.pending} PDF(s); esta página atualiza-se sozinha.</p></div>` : ''}
     ${state.analysis?.pending && canExplain && !state.analysis.running ? `<div class="notice"><p>${state.analysis.pending} PDF(s) com texto ainda sem resumo nem perguntas. Cada pedido usa a tua chave de IA.</p><button class="primary" data-action="analyze-pending">Analisar PDFs pendentes</button></div>` : ''}
+    ${state.ai?.configured && !state.ai?.consented ? '<div class="notice"><p>Para criar explicações, autoriza o envio do texto dos PDFs ao teu fornecedor de IA.</p><button data-action="ai-consent">Autorizar análise</button></div>' : ''}
+    ${!state.ai?.configured ? '<div class="notice"><p>Configura a tua chave de IA nas Definições. Os PDFs e o texto extraído continuam disponíveis em Materiais.</p><button data-screen="settings">Abrir Definições</button></div>' : ''}
     ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' :
-    `<div class="study-layout"><section class="panel"><div class="field-row"><label>Cadeira<select id="explain-course">${courses.map((item) => `<option value="${item.id}" ${item.id === explanationCourse ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
-      <label>PDF com texto<select id="explain-file">${files.map((file) => `<option value="${file.id}" ${file.id === explanationFile ? 'selected' : ''}>${esc(file.filename)}</option>`).join('')}</select></label></div>
-      ${state.ai?.configured && !state.ai?.consented ? '<div class="notice"><p>Para criar explicações, autoriza o envio do texto dos PDFs ao teu fornecedor de IA.</p><button data-action="ai-consent">Autorizar análise</button></div>' : ''}
-      ${!state.ai?.configured ? '<div class="notice"><p>Configura a tua chave de IA nas Definições. Os PDFs e o texto extraído continuam disponíveis em Materiais.</p><button data-screen="settings">Abrir Definições</button></div>' : ''}
-      ${!files.length ? `<p class="empty">${state.sync?.status === 'running' ? 'A importar e a extrair os PDFs…' : 'Ainda não há PDFs com texto nesta cadeira.'}</p>` :
-      `<p class="meta">Experimenta uma abordagem:</p><div class="prompt-grid">${Object.entries({ simples: 'Explicação simples', exemplo: 'Exemplo prático', feynman: 'Método Feynman', exame: 'Preparar a prova' }).map(([key, label]) => `<button data-explain-prompt="${key}" ${canExplain ? '' : 'disabled'}>${label}</button>`).join('')}</div>
-      <form id="explain-form"><label>Ou escreve a tua dúvida<textarea name="question" rows="4" minlength="4" maxlength="1000" required placeholder="Ex.: Como se relacionam os casos de uso e os requisitos?"></textarea></label><button class="primary" ${canExplain ? '' : 'disabled'}>Pedir explicação</button></form>`}</section>
-      <aside class="panel answer-panel"><h2>Explicação</h2>${explanationAnswer ? `<p class="answer-text">${esc(explanationAnswer.answer)}</p>${citationsHtml(explanationAnswer)}` : '<p class="muted">A explicação aparece aqui, com ligações às páginas do PDF.</p>'}
-      <p class="hint">Cada pedido usa a tua chave; o fornecedor pode cobrar.</p></aside></div>`}`);
+    `<div class="toolbar"><label>Cadeira<select id="explain-course">${courses.map((item) => `<option value="${item.id}" ${item.id === explanationCourse ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
+      ${files.length ? `<label class="grow">PDF<select id="explain-file">${files.map((item) => `<option value="${item.id}" ${item.id === explanationFile ? 'selected' : ''}>${esc(item.filename)}</option>`).join('')}</select></label>` : ''}</div>
+    ${!files.length ? `<p class="empty">${state.sync?.status === 'running' ? 'A importar e a extrair os PDFs…' : 'Ainda não há PDFs com texto nesta cadeira. Importa do Moodle ou envia um PDF em Materiais.'}</p>` :
+    `<div class="explain-layout"><section class="panel"><h2>Que explicação queres?</h2>
+        <div class="approaches">${Object.entries(explainApproaches).map(([key, [label, when]]) => `<button data-explain-prompt="${key}" ${disabled}><strong>${label}</strong><span>${when}</span></button>`).join('')}</div>
+        <form id="explain-form"><label>Ou escreve a tua dúvida<textarea name="question" rows="3" minlength="4" maxlength="1000" required placeholder="Ex.: Qual é a diferença entre um ator e um caso de uso?"></textarea></label>
+          <button class="primary" ${disabled}>Pedir explicação</button></form>
+        <p class="hint">Dúvidas concretas dão melhores respostas: diz o que já percebeste e onde te perdes. Cada pedido usa a tua chave; o fornecedor pode cobrar.</p></section>
+      <aside class="panel pdf-card"><div class="panel-head"><h2>Este PDF</h2>${openButton(file, 'Abrir PDF', 'button small')}</div>
+        ${file && analyzing(file.id) ? summaryLoading(file.id) : file?.summary ? `${digest(file, { topicButtons: canExplain })}${analysisOf(file).topics.length && canExplain ? '<p class="hint">Carrega num tópico para o explicar.</p>' : ''}`
+          : `<p class="muted">Ainda sem resumo. ${canExplain ? 'Cria-o para veres o essencial do PDF e teres perguntas para o Treino.' : ''}</p>${canExplain ? `<button data-analyze="${file?.id}">Criar resumo com IA</button>` : ''}`}</aside></div>
+    ${explanationPane(file)}`}`}`);
 }
 
 const coursePicker = (id, value, disabled = false) => {
@@ -336,7 +463,8 @@ function practice() {
       `<div class="self-answer"><p class="meta">A tua resposta</p><p>${esc(practiceDraft || 'Não escreveste uma resposta.')}</p></div><div class="answer"><p><strong>Resposta de referência</strong></p><p>${esc(item.resposta)}</p>${item.explicacao ? `<p class="muted">${esc(item.explicacao)}</p>` : ''}</div>
       <div class="row"><button data-practice-grade="false">Preciso de rever</button><button class="primary" data-practice-grade="true">Consegui explicar</button></div>`}
       <p class="panel-foot"><a href="${materialHref(item.fileId)}" target="_blank" rel="noopener">Confirmar no PDF</a></p></section>
-      <aside class="panel method-note"><h2>Como estudar</h2><ol><li>Responde de memória.</li><li>Compara com a solução.</li><li>Volta ao PDF se faltou alguma parte.</li></ol></aside></div>`
+      <aside class="panel method-note"><h2>Como estudar</h2><ol><li>Responde de memória, mesmo que seja só uma parte.</li><li>Compara com a resposta de referência e repara no que faltou.</li><li>Marca <strong>Preciso de rever</strong> sem culpa: a pergunta volta ao Treino e aos Flashcards.</li><li>Volta ao PDF na página que te falhou.</li></ol>
+        <p class="hint">Escrever a resposta, mesmo incompleta, fixa melhor do que reler o material.</p></aside></div>`
       : practiceDeck ? practiceIndex ? '<div class="empty"><p>Terminaste as perguntas desta sessão.</p><button data-screen="cards">Rever flashcards</button></div>' : needsAnalysis('Ainda não há perguntas nesta cadeira.') : '<p class="loading">A carregar perguntas…</p>'}`);
 }
 
@@ -347,12 +475,12 @@ function revision() {
   const ready = files.filter((file) => file.summary);
   shell(`${pageHead('Folha de revisão', courses.length ? `${ready.length} de ${files.length} materiais com resumo. Abre sempre o PDF para confirmar os detalhes.` : '', coursePicker('revision-course', revisionCourse))}
     ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' :
-    ready.length ? `<div class="revision">${ready.map((file) => {
-      let topics = [];
-      try { topics = JSON.parse(file.topics_json || '{}').topicos || []; } catch {}
-      return `<section class="revision-item"><div class="row between"><h2>${esc(file.filename)}</h2>${openButton(file, 'Abrir PDF', 'button small')}</div>
-        <p>${esc(file.summary)}</p>${topics.length ? `<div class="tags">${topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</section>`;
-    }).join('')}</div>` : needsAnalysis('Ainda não há resumos nesta cadeira.')}`);
+    ready.length ? `${helpNote('Como usar a folha de revisão', ['Lê cada resumo e tenta lembrar-te dos exemplos do PDF antes de abrires o material.',
+      'Os pontos a reter são o mínimo para uma prova; os conceitos servem de glossário rápido.',
+      'Se um resumo não te diz nada, abre o PDF ou pede uma explicação nesse material.'])}
+      <div class="revision">${ready.map((file) => `<section class="revision-item"><div class="row between"><h2>${esc(file.filename)}</h2>
+        <div class="row tight">${state.ai?.configured && state.ai?.consented ? `<button class="small" data-explain-file="${file.id}">Explicar</button>` : ''}${openButton(file, 'Abrir PDF', 'button small')}</div></div>
+        ${digest(file, { redoHint: false })}</section>`).join('')}</div>` : needsAnalysis('Ainda não há resumos nesta cadeira.')}`);
 }
 
 const examTime = () => {
@@ -375,7 +503,9 @@ function exam() {
   const current = examQuestions[examIndex];
   const graded = Object.values(examGrades).filter(Boolean).length;
   shell(`${pageHead('Simulado', 'Até 10 perguntas da cadeira em 20 minutos. Escreve sem consultar e compara no fim.', coursePicker('exam-course', examCourse, Boolean(examEndsAt)))}
-    ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' : !examQuestions.length ? needsAnalysis('Ainda não há perguntas nesta cadeira.') : !examEndsAt && !examCompleted ? `<section class="panel study-card"><h2>Pronto para começar?</h2><p>${examQuestions.length} perguntas, 20 minutos e nenhuma resposta visível até terminares. As respostas ficam só nesta sessão.</p><button class="primary" data-action="exam-start">Começar simulado</button></section>` :
+    ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' : !examQuestions.length ? needsAnalysis('Ainda não há perguntas nesta cadeira.') : !examEndsAt && !examCompleted ? `<section class="panel study-card"><h2>Pronto para começar?</h2><p>${examQuestions.length} perguntas, 20 minutos e nenhuma resposta visível até terminares. As respostas ficam só nesta sessão.</p>
+      <ul class="checklist"><li>Fecha os PDFs e as notas: o objetivo é ver o que já sabes.</li><li>Se não souberes uma pergunta, escreve o que te lembras e avança.</li><li>No fim, compara cada resposta e marca o que precisas de rever.</li></ul>
+      <button class="primary" data-action="exam-start">Começar simulado</button></section>` :
     examCompleted ? `<p class="page-lead">${graded} respostas marcadas como conseguidas. Compara cada resposta e regista o que precisas de rever.</p><div class="stack">${examQuestions.map((item, index) => `<section class="panel"><p class="meta">${index + 1} de ${examQuestions.length} · ${esc(item.filename)}</p><h2 class="study-question">${esc(item.pergunta)}</h2><div class="self-answer"><p class="meta">A tua resposta</p><p>${esc(examAnswers[index] || 'Sem resposta.')}</p></div><div class="answer"><p><strong>Resposta de referência</strong></p><p>${esc(item.resposta)}</p>${item.explicacao ? `<p class="muted">${esc(item.explicacao)}</p>` : ''}</div><p><a href="${materialHref(item.fileId)}" target="_blank" rel="noopener">Confirmar no PDF</a></p>${Object.hasOwn(examGrades, index) ? `<span class="tag">${examGrades[index] ? 'Consegui explicar' : 'Preciso de rever'}</span>` : `<div class="row"><button data-exam-grade="false" data-exam-index="${index}">Preciso de rever</button><button class="primary" data-exam-grade="true" data-exam-index="${index}">Consegui explicar</button></div>`}</section>`).join('')}</div><button data-action="exam-reset">Novo simulado</button>` :
     `<section class="panel study-card"><div class="row between"><p class="meta">${examIndex + 1} de ${examQuestions.length} · ${esc(current.filename)}</p><strong id="exam-clock" class="exam-clock" aria-live="off">${examTime()}</strong></div><h2 class="study-question">${esc(current.pergunta)}</h2><label>A tua resposta<textarea id="exam-answer" rows="7" placeholder="Escreve o que te lembras, sem consultar o material.">${esc(examAnswers[examIndex] || '')}</textarea></label><div class="row"><button class="primary" data-action="exam-next">${examIndex + 1 === examQuestions.length ? 'Terminar e corrigir' : 'Próxima pergunta'}</button><button data-action="exam-finish">Terminar já</button></div></section>`}`);
 }
@@ -426,16 +556,48 @@ function timeForm() {
     <button class="primary">Guardar tempo</button><p class="hint">Põe 0 nos dias em que não estudas. Se saltares um dia, o plano recalcula-se.</p></form>`;
 }
 
-const aiPanel = () => `<section class="panel"><h2>A tua chave de IA</h2>
-  <p class="muted">${state.ai?.settings ? `Configurado: ${esc(state.ai.settings.provider)}. A chave fica cifrada neste computador e não volta a aparecer.` : 'Escolhe o fornecedor, cola a chave e indica os modelos. Encontras os IDs dos modelos na página do fornecedor.'}</p>
+// Sugestões confirmadas na documentação de cada fornecedor a 2026-10-01. Os IDs mudam: o texto aponta sempre para a página de modelos.
+const aiProviders = {
+  anthropic: { label: 'Anthropic (Claude)', keys: 'https://platform.claude.com/settings/keys', models: 'https://platform.claude.com/docs/en/about-claude/models/overview',
+    key: 'Começa por <code>sk-ant-</code>. Precisa de crédito pré-pago na conta.', summary: 'claude-sonnet-5-5', explain: 'claude-sonnet-5-5',
+    list: [['claude-sonnet-5-5', 'Equilibrado; bom para resumos e explicações'], ['claude-haiku-4-5', 'Mais barato e rápido; a Anthropic pode retirá-lo a partir de 15 de outubro de 2026'], ['claude-opus-5-5', 'Mais capaz e cerca do dobro do preço']] },
+  openai: { label: 'OpenAI', keys: 'https://platform.openai.com/api-keys', models: 'https://developers.openai.com/api/docs/models',
+    key: 'Começa por <code>sk-</code>. A API é paga à parte do ChatGPT Plus.', summary: 'gpt-6-luna', explain: 'gpt-6.1-sol',
+    list: [['gpt-6-luna', 'O mais barato; chega para resumos'], ['gpt-6.1-sol', 'Equilibrado; bom para explicações'], ['gpt-6-astra', 'O mais capaz e o mais caro']] },
+  deepseek: { label: 'DeepSeek', keys: 'https://platform.deepseek.com/api_keys', models: 'https://api-docs.deepseek.com/quick_start/pricing',
+    key: 'Começa por <code>sk-</code>. Muito barato; fora das horas de ponta fica a metade do preço.', summary: 'deepseek-flash', explain: 'deepseek-flash',
+    list: [['deepseek-flash', 'Muito barato; serve para resumos e explicações'], ['deepseek-v4-pro', 'Mais capaz e mais caro']] },
+  groq: { label: 'Groq', keys: 'https://console.groq.com/keys', models: 'https://console.groq.com/docs/models',
+    key: 'Começa por <code>gsk_</code>. Tem um nível gratuito com limites por minuto.', summary: 'openai/gpt-oss-20b', explain: 'openai/gpt-oss-120b',
+    list: [['openai/gpt-oss-20b', 'Muito rápido e barato'], ['openai/gpt-oss-120b', 'Mais capaz; melhor para explicações']] },
+  compatible: { label: 'Outro compatível com Chat Completions', key: 'A chave do serviço que escolheres.', list: [],
+    note: 'Para serviços que aceitam o formato Chat Completions da OpenAI, como o OpenRouter (URL base <code>https://openrouter.ai/api/v1</code>). Copia o URL base e o ID do modelo exatamente como aparecem na documentação do serviço.' },
+};
+
+function aiHelp(provider) {
+  const info = aiProviders[provider] || aiProviders.anthropic;
+  return `<div id="ai-help" class="ai-help">
+    <p>${info.keys ? `<a href="${info.keys}" target="_blank" rel="noopener">Criar a chave em ${esc(info.label)}</a>. ` : ''}${info.key}</p>
+    ${info.list.length ? `<p class="meta">IDs de modelo que podes colar:</p><ul class="model-list">${info.list.map(([model, note]) => `<li><code>${model}</code><span>${note}</span></li>`).join('')}</ul>
+      <div class="row tight"><button type="button" class="small" data-action="ai-suggest">Usar ${info.summary === info.explain ? `<code>${info.summary}</code> nos dois` : 'os sugeridos'}</button>
+      <a class="link-button" href="${info.models}" target="_blank" rel="noopener">Ver todos os modelos</a></div>` : `<p class="muted">${info.note}</p>`}
+    <datalist id="ai-models">${info.list.map(([model]) => `<option value="${model}">`).join('')}</datalist></div>`;
+}
+
+const aiPanel = () => {
+  const provider = state.ai?.settings?.provider || 'anthropic';
+  return `<section class="panel"><h2>A tua chave de IA</h2>
+  <p class="muted">${state.ai?.settings ? `Configurado: ${esc(aiProviders[provider]?.label || provider)}. A chave fica cifrada neste computador e não volta a aparecer.` : 'Três passos: escolhe o fornecedor, cria lá uma chave de API e cola-a aqui com os IDs dos modelos.'}</p>
   <form id="ai-settings-form" autocomplete="off"><label>Fornecedor<select name="provider" required>
-    ${[['anthropic', 'Anthropic'], ['openai', 'OpenAI'], ['deepseek', 'DeepSeek'], ['groq', 'Groq'], ['compatible', 'Outro compatível com Chat Completions']].map(([value, label]) => `<option value="${value}" ${state.ai?.settings?.provider === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-    <label>Chave de API<input name="apiKey" type="password" minlength="8" maxlength="2048" placeholder="${state.ai?.settings ? 'Deixa vazio para manter a chave atual' : 'Chave do fornecedor'}" ${state.ai?.settings ? '' : 'required'} autocomplete="new-password"></label>
-    <div class="field-row"><label>Modelo para resumos<input name="summaryModel" value="${esc(state.ai?.settings?.summary_model || '')}" placeholder="ID do modelo" required maxlength="120"></label>
-    <label>Modelo para explicações<input name="explainModel" value="${esc(state.ai?.settings?.explain_model || '')}" placeholder="ID do modelo" required maxlength="120"></label></div>
-    <label>URL base (só para outro serviço compatível)<input name="baseUrl" type="url" value="${esc(state.ai?.settings?.base_url || '')}" placeholder="https://api.exemplo.com/v1"></label>
+    ${Object.entries(aiProviders).map(([value, info]) => `<option value="${value}" ${provider === value ? 'selected' : ''}>${info.label}</option>`).join('')}</select></label>
+    ${aiHelp(provider)}
+    <label>Chave de API<input name="apiKey" type="password" minlength="8" maxlength="2048" placeholder="${state.ai?.settings ? 'Deixa vazio para manter a chave atual' : 'Cola aqui a chave do fornecedor'}" ${state.ai?.settings ? '' : 'required'} autocomplete="new-password"></label>
+    <div class="field-row"><label>Modelo para resumos<input name="summaryModel" list="ai-models" value="${esc(state.ai?.settings?.summary_model || '')}" placeholder="${aiProviders[provider]?.summary || 'ID do modelo'}" required maxlength="120"><small>Corre uma vez por PDF. Um modelo barato chega.</small></label>
+    <label>Modelo para explicações<input name="explainModel" list="ai-models" value="${esc(state.ai?.settings?.explain_model || '')}" placeholder="${aiProviders[provider]?.explain || 'ID do modelo'}" required maxlength="120"><small>Corre a cada pergunta. Um modelo mais capaz explica melhor.</small></label></div>
+    <label data-base-url ${provider === 'compatible' ? '' : 'hidden'}>URL base<input name="baseUrl" type="url" value="${esc(state.ai?.settings?.base_url || '')}" placeholder="https://api.exemplo.com/v1"></label>
     <div class="row"><button class="primary">Guardar chave</button>${state.ai?.settings ? '<button type="button" data-action="ai-key-delete">Remover chave</button>' : ''}</div></form>
-  <p class="hint">Mudar de fornecedor ou de modelos apaga os resumos anteriores, para não misturar resultados.</p></section>`;
+  <p class="hint">O ID do modelo é o nome técnico, sem espaços, tal como aparece na página de modelos do fornecedor, por exemplo <code>${aiProviders.anthropic.summary}</code>. Se o fornecedor recusar o pedido, o Caderno mostra a razão. Mudar de fornecedor ou de modelos apaga os resumos anteriores, para não misturar resultados.</p></section>`;
+};
 
 const consentPanel = () => `<section class="panel"><h2>Autorização de análise</h2>
   <p class="muted">Resumos, perguntas e explicações enviam o texto dos PDFs ao fornecedor que escolheste. PDFs com dados de pessoas não são enviados. Nada é analisado sem pedires.</p>
@@ -587,6 +749,18 @@ async function action(target) {
     if (!confirm('Remover a chave de IA? Os resumos criados com ela serão apagados.')) return;
     await api('/api/ai-settings', { method: 'DELETE' });
     flash('Chave removida.'); await refresh();
+  } else if (name === 'copy-explanation') {
+    if (!explanationAnswer) return;
+    await navigator.clipboard.writeText(plainAnswer(explanationAnswer.answer));
+    flash('Explicação copiada.');
+  } else if (name === 'ai-suggest') {
+    const form = target.closest('form');
+    const info = aiProviders[form?.querySelector('[name=provider]')?.value];
+    if (!form || !info?.summary) return;
+    for (const [name, value] of [['summaryModel', info.summary], ['explainModel', info.explain]]) {
+      const input = form.querySelector(`[name=${name}]`);
+      if (input instanceof HTMLInputElement) input.value = value;
+    }
   } else if (name === 'analyze-pending') {
     await post('/api/analyze-pending', {});
     flash('A analisar os PDFs pendentes.'); await refresh();
@@ -598,11 +772,30 @@ async function action(target) {
   }
 }
 
+async function requestExplanation(label, question) {
+  if (!state.ai?.configured || !state.ai?.consented) throw new Error('Configura e autoriza primeiro a IA nas Definições.');
+  if (!explanationFile) throw new Error('Escolhe um PDF com texto extraído.');
+  if (busy.has('explain')) return;
+  const filename = fileById(explanationFile)?.filename || '';
+  explanationLoading = label; explanationAnswer = null; explanationError = null;
+  try {
+    await whileBusy('explain', async () => {
+      document.querySelector('#explanation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      explanationAnswer = { ...await post('/api/ask', { courseId: explanationCourse, fileId: explanationFile, question }), label, filename };
+    });
+  } catch (error) { explanationError = { label, message: error.message }; render(); }
+  finally { explanationLoading = null; }
+  const pane = document.querySelector('#explanation');
+  if (pane instanceof HTMLElement) { pane.focus({ preventScroll: true }); pane.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
 document.addEventListener('click', async (event) => {
-  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-simple],[data-favorite-file],[data-explain-prompt],[data-practice-grade],[data-focus-grade],[data-exam-grade],[data-open-file],[data-guide-step]') : null;
+  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-favorite-file],[data-explain-prompt],[data-explain-topic],[data-explain-file],[data-practice-grade],[data-focus-grade],[data-exam-grade],[data-open-file],[data-guide-step]') : null;
   if (!target) return;
   if (!(target instanceof HTMLElement)) return;
   event.preventDefault();
+  // Qualquer botão que espere pelo servidor mostra que está a trabalhar (o CSS só o mostra após um instante).
+  if (target instanceof HTMLButtonElement) target.setAttribute('aria-busy', 'true');
   try {
     if (target.dataset.guideStep) {
       guideStep = Number(target.dataset.guideStep); render();
@@ -617,14 +810,16 @@ document.addEventListener('click', async (event) => {
       examGrades[index] = correct;
       render();
     } else if (target.dataset.explainPrompt) {
-      if (!(target instanceof HTMLButtonElement)) return;
-      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Configura e autoriza primeiro a IA nas Definições.');
-      if (!explanationFile) throw new Error('Escolhe um PDF com texto extraído.');
-      target.disabled = true;
-      try { explanationAnswer = await post('/api/ask', { courseId: explanationCourse, fileId: explanationFile,
-        question: explainPrompts[target.dataset.explainPrompt] }); }
-      finally { target.disabled = false; }
-      render();
+      const [label, , question] = explainApproaches[target.dataset.explainPrompt];
+      await requestExplanation(label, question);
+    } else if (target.dataset.explainTopic) {
+      const topic = target.dataset.explainTopic;
+      await requestExplanation(`Tópico: ${topic}`, `Explica o tópico «${topic}» com base neste PDF: o que é, como funciona e um exemplo. Indica também com que outros conceitos do PDF se relaciona.`);
+    } else if (target.dataset.explainFile) {
+      const file = fileById(target.dataset.explainFile);
+      if (!file) return;
+      screen = 'explain'; explanationCourse = file.course_id; explanationFile = file.id; explanationAnswer = null;
+      render(); window.scrollTo(0, 0);
     } else if (target.dataset.practiceGrade) {
       const item = practiceDeck?.questions?.[practiceIndex];
       if (!item) return;
@@ -641,17 +836,17 @@ document.addEventListener('click', async (event) => {
       await post('/api/favorite', { fileId: target.dataset.favoriteFile, favorite });
       if (fileDetail?.id === target.dataset.favoriteFile) fileDetail.favorite = favorite ? 1 : 0;
       await refresh();
-    } else if (target.dataset.simple) {
-      answer = await post('/api/ask', { courseId: target.dataset.course, fileId: target.dataset.simple,
-        question: 'Explica de forma simples as ideias principais deste documento, com um exemplo prático.' });
-      render();
     } else if (target.dataset.quiz) {
       await post('/api/quiz', { fileId: target.dataset.quiz, index: Number(target.dataset.index), correct: target.dataset.correct === 'true' });
       flash('Resposta registada.'); await refresh();
     } else if (target.dataset.analyze) {
-      target.setAttribute('disabled', ''); flash('A criar o resumo…');
-      await post('/api/analyze', { fileId: target.dataset.analyze });
-      fileDetail = await api(`/api/file?id=${encodeURIComponent(target.dataset.analyze)}`); await refresh();
+      const fileId = target.dataset.analyze;
+      await whileBusy(`analyze:${fileId}`, async () => {
+        await post('/api/analyze', { fileId, force: target.dataset.force === 'true' });
+        if (fileDetail?.id === fileId) fileDetail = await api(`/api/file?id=${encodeURIComponent(fileId)}`);
+        await refresh();
+      });
+      flash('Resumo pronto.');
     } else if (target.dataset.file) {
       screen = 'detail'; fileDetail = null; answer = null; render();
       fileDetail = await api(`/api/file?id=${encodeURIComponent(target.dataset.file)}`); render();
@@ -680,6 +875,7 @@ document.addEventListener('click', async (event) => {
     } else await action(target);
   }
   catch (error) { flash(error.message); }
+  finally { target.removeAttribute('aria-busy'); }
 });
 
 document.addEventListener('submit', async (event) => {
@@ -687,7 +883,7 @@ document.addEventListener('submit', async (event) => {
   if (!(form instanceof HTMLFormElement)) return;
   event.preventDefault();
   const button = form.querySelector('button[type=submit],button:not([type])');
-  if (button instanceof HTMLButtonElement) button.disabled = true;
+  if (button instanceof HTMLButtonElement) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
     const data = new FormData(form);
     if (form.id === 'auth-form') {
@@ -713,13 +909,16 @@ document.addEventListener('submit', async (event) => {
         summaryModel: data.get('summaryModel'), explainModel: data.get('explainModel'), baseUrl: data.get('baseUrl') });
       form.reset(); flash('Chave de IA guardada.'); await refresh();
     } else if (form.id === 'ask-form') {
-      answer = await post('/api/ask', { courseId: selectedCourse, question: data.get('question') });
-      render();
+      answer = null;
+      await whileBusy('ask', async () => { answer = await post('/api/ask', { courseId: selectedCourse, question: data.get('question') }); });
     } else if (form.id === 'explain-form') {
-      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Configura e autoriza primeiro a IA nas Definições.');
-      explanationAnswer = await post('/api/ask', { courseId: explanationCourse, fileId: explanationFile,
-        question: data.get('question') });
-      render();
+      const question = String(data.get('question') || '').trim();
+      await requestExplanation(question.length > 90 ? `${question.slice(0, 90)}…` : question, question);
+    } else if (form.id === 'detail-ask-form') {
+      if (!fileDetail) return;
+      const { course_id: courseId, id: fileId } = fileDetail;
+      answer = null;
+      await whileBusy('detail-ask', async () => { answer = await post('/api/ask', { courseId, fileId, question: data.get('question') }); });
     } else if (form.id === 'upload-form') {
       const file = data.get('file');
       if (!(file instanceof File) || file.size > 20 * 1024 * 1024) throw new Error('Escolhe um ficheiro até 20 MB.');
@@ -731,7 +930,7 @@ document.addEventListener('submit', async (event) => {
       screen = 'today'; guideStep = 0; flash('Dados apagados.'); await refresh();
     }
   } catch (error) { flash(error.message); }
-  finally { if (button instanceof HTMLButtonElement) button.disabled = false; }
+  finally { if (button instanceof HTMLButtonElement) { button.disabled = false; button.removeAttribute('aria-busy'); } }
 });
 
 document.addEventListener('input', (event) => {
@@ -747,12 +946,23 @@ document.addEventListener('change', async (event) => {
     cardDeck = null;
     try { await loadCards(); } catch (error) { flash(error.message); }
   }
+  if (event.target instanceof HTMLSelectElement && event.target.name === 'provider' && event.target.form?.id === 'ai-settings-form') {
+    const form = event.target.form;
+    const info = aiProviders[event.target.value];
+    form.querySelector('#ai-help')?.replaceWith(document.createRange().createContextualFragment(aiHelp(event.target.value)));
+    const baseUrl = form.querySelector('[data-base-url]');
+    if (baseUrl instanceof HTMLElement) baseUrl.hidden = event.target.value !== 'compatible';
+    for (const [name, value] of [['summaryModel', info?.summary], ['explainModel', info?.explain]]) {
+      const input = form.querySelector(`[name=${name}]`);
+      if (input instanceof HTMLInputElement) input.placeholder = value || 'ID do modelo';
+    }
+  }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'file-course') { selectedCourse = event.target.value; render(); }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'explain-course') {
-    explanationCourse = event.target.value; explanationFile = null; explanationAnswer = null; render();
+    explanationCourse = event.target.value; explanationFile = null; explanationAnswer = null; explanationError = null; render();
   }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'explain-file') {
-    explanationFile = event.target.value; explanationAnswer = null; render();
+    explanationFile = event.target.value; explanationAnswer = null; explanationError = null; render();
   }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'practice-course') {
     practiceCourse = event.target.value; practiceDeck = null; practiceIndex = 0; practiceRevealed = false; practiceDraft = ''; render();

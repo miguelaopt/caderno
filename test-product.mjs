@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { openProductDb } from './lib/product-db.mjs';
 import { encryptToken, decryptToken } from './lib/product-security.mjs';
-import { analyzeFile, parseAnalysis } from './lib/product-ai.mjs';
+import { analyzeFile, parseAnalysis, citedSources } from './lib/product-ai.mjs';
 import { generateAi, saveAiSettings, aiSettings, userAiClient, deleteAiSettings } from './lib/product-ai-provider.mjs';
 
 const temp = await mkdtemp(join(tmpdir(), 'caderno-test-'));
@@ -19,6 +19,13 @@ const secret = encryptToken('a'.repeat(32));
 assert.equal(decryptToken(secret), 'a'.repeat(32));
 assert.ok(!secret.includes('a'.repeat(10)));
 assert.equal(parseAnalysis('```json\n{"summary":"Resumo suficientemente longo.","topics":["tema"],"minutes":360,"type":"slides","questions":[]}\n```').minutes, 240);
+// Raciocínio em texto e quebras de linha cruas dentro de strings eram «erros JSON» na análise.
+const loose = parseAnalysis('<think>{rascunho}</think>{"summary":"Primeira linha\nsegunda linha.","topics":[],"minutes":20,"type":"aula","questions":[]}');
+assert.equal(loose.summary, 'Primeira linha\nsegunda linha.');
+assert.equal(loose.type, 'outro');
+assert.deepEqual(loose.keyPoints, []);
+const excerpts = [{ fileId: 'a', filename: 'a.pdf', page: 4 }, { fileId: 'b', filename: 'b.pdf', page: 2 }];
+assert.deepEqual(citedSources('Ideia [2]. Outra [1, 9].', excerpts).map((source) => `${source.ref}:${source.page}`), ['1:4', '2:2']);
 
 const moodleToken = 'testMoodleToken12345678901234567890';
 const moodleRequests = [];
@@ -260,7 +267,7 @@ try {
         usage: { input_tokens: 4, output_tokens: 3 } }), { status: 200 });
     };
     assert.deepEqual(await generateAi(userAiClient(cacheDb, userId, 'summary'), 'Sistema', 'Texto', 100),
-      { text: '{"ok":true}', usage: { input_tokens: 4, output_tokens: 3 } });
+      { text: '{"ok":true}', usage: { input_tokens: 4, output_tokens: 3 }, truncated: false });
     process.env.AI_ALLOWED_BASE_URLS = 'https://models.example.test/v1';
     saveAiSettings(cacheDb, userId, { provider: 'compatible', baseUrl: 'https://models.example.test/v1',
       apiKey: 'other-test-key-123', summaryModel: 'model-a', explainModel: 'model-b' });
@@ -272,7 +279,7 @@ try {
         usage: { prompt_tokens: 7, completion_tokens: 5 } }), { status: 200 });
     };
     assert.deepEqual(await generateAi(userAiClient(cacheDb, userId, 'question'), 'Sistema', 'Texto', 100),
-      { text: '{"ok":true}', usage: { input_tokens: 7, output_tokens: 5 } });
+      { text: '{"ok":true}', usage: { input_tokens: 7, output_tokens: 5 }, truncated: false });
   } finally { globalThis.fetch = originalFetch; }
   delete process.env.AI_ALLOWED_BASE_URLS;
   deleteAiSettings(cacheDb, userId);
