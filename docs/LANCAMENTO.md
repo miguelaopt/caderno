@@ -41,16 +41,30 @@ Limite conhecido: quem pagar a Groq também recebe os pedidos pequenos. Se algu�
 
 A [SignPath Foundation](https://signpath.org) assina gratuitamente projetos de código aberto com um certificado em nome da fundação. O Caderno já tem licença MIT, releases públicas e build no GitHub Actions. A aceitação depende da avaliação da SignPath, incluindo a reputação verificável do projeto.
 
+Há dois pedidos diferentes: primeiro, a **candidatura ao programa gratuito** no [formulário Apply](https://signpath.org/apply.html); só depois da aprovação é possível enviar um **pedido de assinatura de uma release** pelo workflow do GitHub. O instalador v0.3.1 continua sem assinatura.
+
+### Verificação para enviar a candidatura (2026-10-01)
+
+- [x] Repositório público; a API do GitHub reconhece `LICENSE` como MIT.
+- [x] Release v0.3.1 pública com instalador Windows; build e testes no GitHub Actions concluídos com sucesso.
+- [x] «Code signing policy» publicada no [README](https://github.com/miguelaopt/caderno#code-signing-policy), ligada no [site](https://caderno.me) e nas [notas da release](https://github.com/miguelaopt/caderno/releases/tag/v0.3.1).
+- [x] [Política de privacidade](https://caderno.me/privacidade) publicada, incluindo GitHub, Ko-fi e os fornecedores de IA.
+- [x] No instalador público v0.3.1, os metadados do instalador e do `Caderno.exe` indicam produto `Caderno` e versão `0.3.1`.
+- [ ] Confirmar manualmente a autenticação de dois fatores em [GitHub → Password and authentication](https://github.com/settings/security); a API usada nesta verificação não mostrou o estado. A SignPath também exige autenticação multifator na sua conta.
+- [ ] Na candidatura, explicar que a aplicação consulta o GitHub para atualizações ao abrir e a cada quatro horas e perguntar se a SignPath exige aviso de privacidade no instalador e opção de desativar essa consulta.
+
+Depois de confirmares o 2FA no GitHub, podes enviar a candidatura com a explicação e a pergunta sobre atualizações. A aceitação e as restrições finais da assinatura são decididas pela SignPath, que também avalia a reputação pública do projeto.
+
 ### 1. Preparar o repositório
 
 1. **Ativar a autenticação de dois fatores** no GitHub (obrigatório para todos os membros da equipa, também na SignPath).
-2. **Publicar a política de assinatura de código.** A secção «Code signing policy» está no `README.md`, ligada na página inicial e na secção de download do site. Inclui a frase exigida, os papéis da equipa e a ligação à política de privacidade. Confirmar estas ligações depois de publicar a atualização. O workflow acrescentará a ligação às notas das próximas releases; acrescentá-la também à descrição da release pública atual antes da candidatura.
-3. **Metadados do executável.** O electron-builder já preenche o nome do produto e a versão; confirmar no `Caderno.exe` (Propriedades → Detalhes) que aparecem «Caderno» e a versão certa.
+2. **Política de assinatura publicada.** A secção «Code signing policy» está no `README.md`, ligada na página inicial, na secção de download e nas notas da release v0.3.1. Inclui a frase exigida, os papéis da equipa e a ligação à política de privacidade. O workflow acrescenta a ligação às próximas releases.
+3. **Metadados do executável.** No instalador v0.3.1, o nome de produto e a versão estão presentes no `Caderno.exe`. Confirmar também no Windows em Propriedades → Detalhes quando fizeres o teste de instalação.
 4. **Esclarecer a consulta automática de atualizações.** A app instalada contacta o GitHub ao abrir. Confirmar com a SignPath se este comportamento exige mostrar a política de privacidade no instalador e oferecer uma opção para desativar a consulta, segundo as condições de privacidade da fundação.
 
 ### 2. Candidatura
 
-1. Em [signpath.org/apply.html](https://signpath.org/apply.html), preencher a candidatura com o [repositório](https://github.com/miguelaopt/caderno), as [releases](https://github.com/miguelaopt/caderno/releases), o [site](https://caderno.me), a [política de assinatura](https://github.com/miguelaopt/caderno#code-signing-policy) e a [política de privacidade](https://caderno.me/privacidade), depois de as alterações estarem publicadas.
+1. Em [signpath.org/apply.html](https://signpath.org/apply.html), preencher o formulário com o [repositório](https://github.com/miguelaopt/caderno), as [releases](https://github.com/miguelaopt/caderno/releases), o [site](https://caderno.me), a [política de assinatura](https://github.com/miguelaopt/caderno#code-signing-policy) e a [política de privacidade](https://caderno.me/privacidade). Descrever a app como ferramenta de estudo Windows de código aberto, compilada no GitHub Actions, com Moodle e IA opcionais, dados locais e verificação de atualizações pelo GitHub. Incluir a pergunta de privacidade indicada acima.
 2. Esperar pela aprovação. A SignPath verifica o projeto manualmente; pode demorar algumas semanas.
 3. Depois de aprovado, configurar no [SignPath.io](https://app.signpath.io) uma organização, um projeto, uma política de assinatura e a configuração dos artefactos. Guardar os identificadores e o token da API para o workflow; os valores concretos só são conhecidos nessa fase.
 
