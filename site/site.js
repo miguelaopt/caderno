@@ -1,5 +1,5 @@
 // Liga os botões de download ao instalador mais recente das releases do GitHub.
-// Sem JavaScript ou sem resposta da API, os links ficam na última versão conhecida.
+// Sem JavaScript ou sem resposta da API, os links abrem a página da última release.
 const REPO = 'miguelaopt/caderno';
 
 fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, { headers: { accept: 'application/vnd.github+json' } })
