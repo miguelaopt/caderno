@@ -1,6 +1,6 @@
 # Caderno para Windows
 
-O instalador cria uma aplicação local. A interface e as funções de estudo são as mesmas da versão web. A base de dados fica em `%APPDATA%\Caderno\Dados\product.db`; a chave local de proteção fica na mesma pasta. Os materiais importados ou enviados são guardados em `%USERPROFILE%\Documents\Caderno\Materiais\<conta>\<cadeira>\`. O Windows pode redirecionar a pasta Documentos para OneDrive; nesse caso o Caderno usa a localização que o Windows indicar.
+O instalador cria uma aplicação local, sem conta nem servidor: usa um perfil único neste computador. A base de dados fica em `%APPDATA%\Caderno\Dados\product.db`; a chave local de proteção fica na mesma pasta. Os materiais importados ou enviados são guardados em `%USERPROFILE%\Documents\Caderno\Materiais\<conta>\<cadeira>\`. O Windows pode redirecionar a pasta Documentos para OneDrive; nesse caso o Caderno usa a localização que o Windows indicar.
 
 Os PDFs já guardados abrem sem internet. Outros ficheiros ficam na pasta Documentos e podem ser abertos com uma aplicação compatível instalada no computador. Sincronizar o Moodle e usar IA exigem ligação à internet. Resumos, perguntas, flashcards e simulados já criados permanecem disponíveis offline. A aplicação guarda os ficheiros por conta e cadeira; o nome original faz parte do nome do ficheiro, precedido de um identificador para evitar colisões. São aceites PDF, Office, OpenDocument, texto, EPUB e ZIP, até 20 MB por ficheiro. Só os PDFs têm visualizador integrado e análise por IA.
 
@@ -8,13 +8,13 @@ Os PDFs já guardados abrem sem internet. Outros ficheiros ficam na pasta Docume
 
 Descarrega [Caderno-0.1.1-Windows-x64.exe](https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe), executa-o e escolhe a pasta de instalação. É um instalador x64 sem assinatura de código; o Windows pode apresentar um aviso de editor desconhecido. O código e o processo de build estão neste repositório.
 
-Ao abrir, cria uma conta local. Para ligar o Moodle, indica primeiro o endereço HTTPS da plataforma em **Cadeiras → Endereço do Moodle**, guarda e introduz as tuas credenciais. Também podes criar cadeiras manuais e enviar materiais sem configurar o Moodle. Em **Definições**, podes adicionar a tua própria chave de IA; é opcional. Anthropic, OpenAI, DeepSeek e Groq têm ligação direta. Para outro fornecedor que use Chat Completions, indica a URL base HTTPS e os IDs dos modelos.
+Ao abrir pela primeira vez, um guia de início ajuda a juntar as cadeiras, a definir o tempo de estudo e, se quiseres, a configurar a IA; podes reabri-lo nas Definições. Para ligar o Moodle, indica o endereço HTTPS da plataforma em **Cadeiras → Moodle**, guarda e introduz as tuas credenciais. Também podes criar cadeiras manuais e enviar materiais sem configurar o Moodle. Em **Definições**, podes adicionar a tua própria chave de IA; é opcional. Anthropic, OpenAI, DeepSeek e Groq têm ligação direta. Para outro fornecedor que use Chat Completions, indica a URL base HTTPS e os IDs dos modelos.
 
 ## Cópias de segurança e mudança de computador
 
 Fecha a aplicação antes de copiar os dados. Guarda em conjunto a pasta `%APPDATA%\Caderno\Dados` e a pasta `Documentos\Caderno\Materiais`. A chave `encryption.key` é necessária para recuperar tokens Moodle e chaves de IA guardadas. Para mudar de computador, instala a mesma versão do Caderno e repõe as duas pastas nos caminhos correspondentes antes de abrir a aplicação.
 
-Apagar a conta na aplicação elimina os dados associados a essa conta, incluindo os PDFs. Desinstalar a aplicação não deve ser tratado como cópia de segurança; guarda os dados antes de reinstalar o Windows.
+**Definições → Apagar tudo** elimina as cadeiras, os ficheiros guardados pelo Caderno, os resumos e o histórico; a app recomeça com um perfil vazio. Desinstalar a aplicação não deve ser tratado como cópia de segurança; guarda os dados antes de reinstalar o Windows.
 
 ## Compilar
 

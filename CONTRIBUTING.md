@@ -10,7 +10,7 @@ cp .env.example .env
 npm run serve
 ```
 
-Não é preciso configurar Moodle, Stripe ou uma chave de IA para trabalhar na maior parte da aplicação. Os testes HTTP usam serviços locais simulados e uma base de dados temporária.
+Não é preciso configurar Moodle ou uma chave de IA para trabalhar na maior parte da aplicação. Os testes HTTP usam serviços locais simulados e uma base de dados temporária.
 
 Antes de enviar uma alteração, executa:
 

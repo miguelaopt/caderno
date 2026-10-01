@@ -6,13 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { openProductDb } from './lib/product-db.mjs';
-import { encryptToken, decryptToken, emailCode, emailCodeMatches } from './lib/product-security.mjs';
-import { analyzeFile, parseAnalysis, remaining, priceRates } from './lib/product-ai.mjs';
+import { encryptToken, decryptToken } from './lib/product-security.mjs';
+import { analyzeFile, parseAnalysis } from './lib/product-ai.mjs';
 import { generateAi, saveAiSettings, aiSettings, userAiClient, deleteAiSettings } from './lib/product-ai-provider.mjs';
-import { handleWebhook, checkoutSession } from './lib/product-billing.mjs';
-import Stripe from 'stripe';
 
-process.env.ENABLE_HOSTED_BILLING = 'true';
 const temp = await mkdtemp(join(tmpdir(), 'caderno-test-'));
 const db = openProductDb(join(temp, 'schema.db'));
 assert.deepEqual(db.prepare('SELECT name FROM sqlite_master WHERE type=? AND name=?').get('table', 'users')?.name, 'users');
@@ -21,9 +18,6 @@ process.env.TOKEN_ENCRYPTION_KEY = 'ab'.repeat(32);
 const secret = encryptToken('a'.repeat(32));
 assert.equal(decryptToken(secret), 'a'.repeat(32));
 assert.ok(!secret.includes('a'.repeat(10)));
-const verification = emailCode();
-assert.ok(emailCodeMatches(verification.code, verification.digest));
-assert.ok(!emailCodeMatches('000000', verification.digest) || verification.code === '000000');
 assert.equal(parseAnalysis('```json\n{"summary":"Resumo suficientemente longo.","topics":["tema"],"minutes":360,"type":"slides","questions":[]}\n```').minutes, 240);
 
 const moodleToken = 'testMoodleToken12345678901234567890';
@@ -84,7 +78,7 @@ await new Promise((resolve) => moodle.listen(0, '127.0.0.1', resolve));
 const moodleUrl = `http://127.0.0.1:${moodle.address().port}`;
 
 const child = spawn(process.execPath, ['scripts/product.mjs'], {
-  cwd: process.cwd(), env: { ...process.env, ANTHROPIC_API_KEY: '', PORT: '0', PRODUCT_DB_PATH: join(temp, 'app.db'),
+  cwd: process.cwd(), env: { ...process.env, PORT: '0', PRODUCT_DB_PATH: join(temp, 'app.db'),
     PRODUCT_FILES_DIR: join(temp, 'files'), MOODLE_URL: moodleUrl, MOODLE_SERVICE: 'personal_service' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -121,7 +115,12 @@ try {
   assert.equal((await aiSave.json()).settings.hasKey, true);
   const aiState = await (await request('/api/state', { cookie: alice })).json();
   assert.equal(aiState.ai.settings.provider, 'deepseek');
-  assert.equal(aiState.ai.remaining.summaries, null);
+  assert.equal(aiState.onboarded, false, 'uma conta nova vê o guia de início');
+  assert.equal((await request('/api/onboarding', { cookie: alice, method: 'POST', json: { done: true } })).status, 200);
+  assert.equal((await (await request('/api/state', { cookie: alice })).json()).onboarded, true);
+  assert.equal((await request('/api/theme', { cookie: alice, method: 'POST', json: { theme: 'light' } })).status, 200);
+  assert.equal((await (await request('/api/state', { cookie: alice })).json()).preference.theme, 'light');
+  assert.equal((await request('/api/theme', { cookie: alice, method: 'POST', json: { theme: 'roxo' } })).status, 400);
   assert.ok(!JSON.stringify(aiState).includes('test-user-key-123'));
   assert.equal((await (await request('/api/state', { cookie: bob })).json()).ai.settings, null);
   const savedAiDb = openProductDb(join(temp, 'app.db'));
@@ -204,8 +203,7 @@ try {
   assert.equal(aliceState.plan.forecast[0].minutes,
     aliceState.plan.blocks.reduce((sum, block) => sum + block.minutes, 0), 'a prévia de hoje coincide com o plano');
   assert.equal((await request(`/api/file?id=${fileId}`, { cookie: bob })).status, 404);
-  assert.equal((await request('/api/admin', { cookie: alice })).status, 403);
-  assert.equal((await request('/api/digest', { cookie: alice, method: 'POST', json: { channel: 'email', hour: 8 } })).status, 400);
+  assert.equal((await request('/api/open-file', { cookie: alice, method: 'POST', json: { fileId } })).status, 404, 'abrir no Windows só existe no desktop');
   assert.equal((await request('/api/ask', { cookie: alice, method: 'POST', json: { courseId, question: 'Explica o tópico' } })).status, 400);
   const weekdays = [0, 30, 45, 45, 45, 30, 0];
   assert.equal((await request('/api/preferences', { cookie: alice, method: 'POST', json: { minutes: 45, weekdays } })).status, 200);
@@ -245,24 +243,13 @@ try {
   cacheDb.prepare('DELETE FROM analyses WHERE file_id=?').run(fileId);
   cacheDb.prepare('UPDATE files SET text_status=?,text=?,pages_json=? WHERE id=?')
     .run('ok', '[Página 1] Equações e incógnitas.', JSON.stringify(['Equações e incógnitas.']), fileId);
-  cacheDb.prepare('INSERT INTO analysis_cache(hash,prompt_version,model,summary,topics_json,questions_json,created_at) VALUES(?,?,?,?,?,?,?)')
-    .run(stored.hash, 1, 'anthropic/claude-haiku-4-5', 'Resumo reutilizado', JSON.stringify({ topicos: ['equações'], minutos_estudo: 30 }),
-      JSON.stringify([{ pergunta: '1+1?', resposta: '2' }]), 0);
-  process.env.ANTHROPIC_API_KEY = 'test-server-key';
-  assert.deepEqual(await analyzeFile(cacheDb, userId, fileId), { cached: true });
-  delete process.env.ANTHROPIC_API_KEY;
+  await assert.rejects(analyzeFile(cacheDb, userId, fileId), /chave de IA/i, 'sem chave pessoal não há IA');
   await assert.rejects(analyzeFile(cacheDb, bobId, fileId), /não encontrado/i);
-  assert.equal(cacheDb.prepare('SELECT summary FROM analyses WHERE file_id=?').get(fileId).summary, 'Resumo reutilizado');
-  assert.deepEqual(priceRates('question'), { input: 2, output: 10 });
-  for (let index = 0; index < 5; index++) cacheDb.prepare('INSERT INTO ai_usage(id,user_id,kind,model,input_tokens,output_tokens,cost_usd,created_at) VALUES(?,?,?,?,?,?,?,?)')
-    .run(`test-${index}`, userId, 'summary', 'test', 1, 1, 0.01, Math.floor(Date.now() / 1000));
-  assert.equal(remaining(cacheDb, userId, 'free').summaries, 0);
   const saved = saveAiSettings(cacheDb, userId, { provider: 'openai', apiKey: 'personal-test-key-123',
     summaryModel: 'test-summary', explainModel: 'test-explain' });
   assert.equal(saved.provider, 'openai');
   assert.ok(!JSON.stringify(aiSettings(cacheDb, userId)).includes('personal-test-key-123'));
   assert.equal(userAiClient(cacheDb, userId, 'summary').apiKey, 'personal-test-key-123');
-  assert.equal(remaining(cacheDb, userId, 'free').summaries, null);
   const originalFetch = globalThis.fetch;
   try {
     globalThis.fetch = async (url, options) => {
@@ -291,57 +278,7 @@ try {
   deleteAiSettings(cacheDb, userId);
   assert.equal(aiSettings(cacheDb, userId), null);
   cacheDb.close();
-  process.env.STRIPE_SECRET_KEY = 'sk_test_local_only';
-  process.env.STRIPE_PRICE_ID = 'price_student_test';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_local_only';
-  process.env.PUBLIC_BASE_URL = 'http://localhost:4321';
-  const billingDb = openProductDb(join(temp, 'app.db'));
-  billingDb.prepare("INSERT INTO courses(id,user_id,name,shortname,selected,source) VALUES(?,?,?,?,1,'manual')")
-    .run('second-course', userId, 'Segunda cadeira', 'SEG');
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const signedEvent = async (eventId, status, priceId = process.env.STRIPE_PRICE_ID) => {
-    const payload = JSON.stringify({ id: eventId, object: 'event', type: 'customer.subscription.updated',
-      created: Math.floor(Date.now() / 1000), data: { object: { id: 'sub_test', customer: 'cus_test', status,
-        metadata: { caderno_user_id: userId }, items: { data: [{ price: { id: priceId } }] } } } });
-    const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET });
-    return handleWebhook(billingDb, Buffer.from(payload), signature);
-  };
-  assert.deepEqual(await signedEvent('evt_active', 'active'), { duplicate: false });
-  assert.equal(billingDb.prepare('SELECT plan FROM users WHERE id=?').get(userId).plan, 'student');
-  assert.deepEqual(await signedEvent('evt_active', 'active'), { duplicate: true });
-  await signedEvent('evt_canceled', 'canceled');
-  assert.equal(billingDb.prepare('SELECT plan FROM users WHERE id=?').get(userId).plan, 'free');
-  assert.equal(billingDb.prepare('SELECT count(*) AS n FROM courses WHERE user_id=? AND selected=1').get(userId).n, 1);
-  billingDb.close();
-  assert.equal((await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name: 'Segunda' } })).status, 400);
-  const giftDb = openProductDb(join(temp, 'app.db'));
-  giftDb.prepare('UPDATE users SET complimentary_at=? WHERE id=?').run(Math.floor(Date.now() / 1000), userId);
-  giftDb.close();
-  const pendingGift = await (await request('/api/state', { cookie: alice })).json();
-  assert.equal(pendingGift.user.plan, 'free', 'oferta não ativa um email por confirmar');
-  assert.equal(pendingGift.user.complimentaryPending, true);
-  const overrideDb = openProductDb(join(temp, 'app.db'));
-  overrideDb.prepare('UPDATE users SET complimentary_override_at=? WHERE id=?').run(Math.floor(Date.now() / 1000), userId);
-  overrideDb.close();
-  const operatorGift = await (await request('/api/state', { cookie: alice })).json();
-  assert.equal(operatorGift.user.plan, 'student', 'oferta pessoal ativa sem confirmar o email');
-  assert.equal(operatorGift.user.complimentary, true);
-  assert.equal(operatorGift.user.complimentaryPending, false);
-  assert.equal(operatorGift.user.email_verified_at, null);
-  const resetOverrideDb = openProductDb(join(temp, 'app.db'));
-  resetOverrideDb.prepare('UPDATE users SET complimentary_override_at=NULL WHERE id=?').run(userId);
-  resetOverrideDb.close();
-  const verifiedDb = openProductDb(join(temp, 'app.db'));
-  verifiedDb.prepare('UPDATE users SET email_verified_at=? WHERE id=?').run(Math.floor(Date.now() / 1000), userId);
-  verifiedDb.close();
-  const activeGift = await (await request('/api/state', { cookie: alice })).json();
-  assert.equal(activeGift.user.plan, 'student');
-  assert.equal(activeGift.user.complimentary, true);
-  assert.equal(activeGift.user.stripeSubscription, false);
-  assert.ok(activeGift.ai.remaining.summaries > pendingGift.ai.remaining.summaries);
-  const giftCheckoutDb = openProductDb(join(temp, 'app.db'));
-  await assert.rejects(checkoutSession(giftCheckoutDb, { id: userId, email: 'alice@example.test', email_verified_at: 1 }), /Já tens acesso/);
-  giftCheckoutDb.close();
+  for (const name of ['Segunda', 'Terceira']) assert.equal((await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name } })).status, 201, 'sem limite de cadeiras');
   const secondCourseResponse = await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name: 'Segunda' } });
   assert.equal(secondCourseResponse.status, 201);
   const secondCourseId = (await secondCourseResponse.json()).id;
@@ -363,18 +300,23 @@ try {
   const mixedCards = await (await request(`/api/cards?course=${courseId}&course=${secondCourseId}`, { cookie: alice })).json();
   assert.equal(mixedCards.cards.length, firstCards.cards.length + secondCards.cards.length);
   assert.equal((await request(`/api/cards?course=${secondCourseId}`, { cookie: bob })).status, 404);
-  assert.equal((await request('/api/delete-account', { cookie: alice, method: 'POST', json: { password: 'uma-password-longa-123' } })).status, 200);
+  assert.equal((await request('/api/delete-account', { cookie: alice, method: 'POST', json: { confirm: 'apagar' } })).status, 400);
+  assert.equal((await request('/api/delete-account', { cookie: alice, method: 'POST', json: { confirm: 'APAGAR' } })).status, 200);
   assert.equal((await request('/api/state', { cookie: alice })).status, 401);
-  const ossChild = spawn(process.execPath, ['scripts/product.mjs'], { cwd: process.cwd(),
-    env: { ...process.env, ENABLE_HOSTED_BILLING: 'false', ANTHROPIC_API_KEY: '', PORT: '0',
+  const ossChild = spawn(process.execPath, ['--input-type=module', '-e',
+    "const app = await import('./scripts/product.mjs'); await app.ready; console.log('SESSAO ' + app.localSession() + ' ' + app.localSession());"], { cwd: process.cwd(),
+    env: { ...process.env, PORT: '0',
       NODE_ENV: 'desktop', DESKTOP_CONFIG_PATH: join(temp, 'desktop-config.json'), MOODLE_URL: '',
       PRODUCT_DB_PATH: join(temp, 'oss.db'), PRODUCT_FILES_DIR: join(temp, 'oss-files') },
     stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    const ossPort = await new Promise((resolve, reject) => {
+    let ossOutput = '';
+    const [ossPort, oldToken, ossToken] = await new Promise((resolve, reject) => {
       ossChild.stdout.on('data', (chunk) => {
-        const match = /localhost:(\d+)/.exec(chunk.toString());
-        if (match) resolve(Number(match[1]));
+        ossOutput += chunk.toString();
+        const port = /localhost:(\d+)/.exec(ossOutput);
+        const tokens = /SESSAO (\S+) (\S+)/.exec(ossOutput);
+        if (port && tokens) resolve([Number(port[1]), tokens[1], tokens[2]]);
       });
       ossChild.on('exit', (code) => reject(new Error(`Servidor open source saiu com código ${code}`)));
       setTimeout(() => reject(new Error('Servidor open source não iniciou')), 5000).unref();
@@ -382,8 +324,9 @@ try {
     const ossBase = `http://127.0.0.1:${ossPort}`;
     const ossRegister = await fetch(ossBase + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'oss@example.test', password: 'uma-password-longa-123' }) });
-    assert.equal(ossRegister.status, 201);
-    const ossCookie = ossRegister.headers.get('set-cookie').split(';')[0];
+    assert.equal(ossRegister.status, 404, 'o desktop não cria contas');
+    assert.equal((await fetch(ossBase + '/api/state', { headers: { cookie: `caderno_session=${oldToken}` } })).status, 401, 'cada arranque invalida a sessão anterior');
+    const ossCookie = `caderno_session=${ossToken}`;
     const saveMoodle = async (url) => fetch(ossBase + '/api/desktop/moodle-url', { method: 'POST',
       headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ url }) });
     assert.equal((await saveMoodle('http://moodle.example.test')).status, 400);
@@ -402,12 +345,20 @@ try {
     }
     const ossState = await (await fetch(ossBase + '/api/state', { headers: { cookie: ossCookie } })).json();
     assert.equal(ossState.courses.length, 2);
-    assert.equal(ossState.hostedBilling, false);
     assert.equal(ossState.desktop, true);
+    assert.equal(ossState.user.email, null);
+    assert.ok(ossState.materialsDir.endsWith('oss-files'));
+    const wiped = await fetch(ossBase + '/api/delete-account', { method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ confirm: 'APAGAR' }) });
+    assert.equal(wiped.status, 200);
+    const freshCookie = wiped.headers.get('set-cookie').split(';')[0];
+    const fresh = await (await fetch(ossBase + '/api/state', { headers: { cookie: freshCookie } })).json();
+    assert.equal(fresh.courses.length, 0, 'apagar recomeça com um perfil vazio');
+    assert.equal(fresh.onboarded, false);
   } finally {
     if (ossChild.exitCode === null) { ossChild.kill(); await once(ossChild, 'exit').catch(() => {}); }
   }
-  console.log('ok — produto: cifra, isolamento de contas, limites e eliminação');
+  console.log('ok — produto: cifra, isolamento de contas, perfil local, guia e eliminação');
 } finally {
   if (child.exitCode === null) {
     child.kill();

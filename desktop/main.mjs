@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import updater from 'electron-updater';
 
 app.setName('Caderno');
 app.setAppUserModelId('pt.caderno.desktop');
@@ -20,7 +21,7 @@ function localKey(dataDir) {
 
 function secureWindow(origin) {
   const window = new BrowserWindow({
-    width: 1280, height: 850, minWidth: 760, minHeight: 580, title: 'Caderno',
+    width: 1280, height: 850, minWidth: 820, minHeight: 600, title: 'Caderno', autoHideMenuBar: true,
     backgroundColor: '#111b1c', icon: fileURLToPath(new URL('../web/icon-512.png', import.meta.url)),
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true },
   });
@@ -42,6 +43,26 @@ function secureWindow(origin) {
   return window;
 }
 
+// Atualizações a partir das releases do GitHub (só na app instalada). Os dados ficam em
+// %APPDATA%\Caderno\Dados e Documentos\Caderno, que o instalador não toca.
+function watchUpdates() {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = updater;
+  let asked = false;
+  autoUpdater.on('error', (error) => console.error('Atualização:', error.message));
+  autoUpdater.on('update-downloaded', async (info) => {
+    if (asked) return;
+    asked = true;
+    const { response } = await dialog.showMessageBox(mainWindow, { type: 'info', buttons: ['Reiniciar agora', 'Mais tarde'],
+      defaultId: 0, cancelId: 1, title: 'Atualização pronta', message: `O Caderno ${info.version} está pronto a instalar.`,
+      detail: 'Os teus dados e materiais ficam onde estão. Se escolheres Mais tarde, a atualização é instalada quando fechares o Caderno.' });
+    if (response === 0) autoUpdater.quitAndInstall();
+  });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  check();
+  setInterval(check, 4 * 3600 * 1000).unref();
+}
+
 async function start() {
   const dataDir = join(app.getPath('userData'), 'Dados');
   const materialsDir = join(app.getPath('documents'), 'Caderno', 'Materiais');
@@ -53,7 +74,7 @@ async function start() {
   process.env.HOST = '127.0.0.1';
   process.env.PORT = '0';
   process.env.NODE_ENV = 'desktop';
-  process.env.ENABLE_HOSTED_BILLING = 'false';
+  process.env.CADERNO_VERSION = app.getVersion();
   const configPath = join(dataDir, 'config.json');
   process.env.DESKTOP_CONFIG_PATH = configPath;
   if (existsSync(configPath)) {
@@ -65,8 +86,12 @@ async function start() {
   server = product.server;
   const address = await product.ready;
   const origin = `http://127.0.0.1:${address.port}`;
+  // Perfil único: a sessão só existe nesta janela, nunca noutro browser do computador.
+  await session.defaultSession.cookies.set({ url: origin, name: 'caderno_session', value: product.localSession(),
+    httpOnly: true, sameSite: 'lax' });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   mainWindow = secureWindow(origin);
+  watchUpdates();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) mainWindow = secureWindow(origin); });
 }
 

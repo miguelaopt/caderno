@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caderno</title>
+  <meta name="description" content="Aplicação Windows de código aberto que junta os materiais e prazos de cada cadeira, monta o plano do dia e dá-te flashcards, treino e simulados.">
+  <meta name="theme-color" content="#111b1c">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <script>try{const t=localStorage.getItem('caderno-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+  <script src="/site.js" defer></script>
+</head>
+<body>
+<header class="site-header"><div class="lp-wrap lp-header">
+  <a class="logo" href="/">caderno<span class="logo-dot">.</span></a>
+  <nav class="lp-nav" aria-label="Secções"><a href="#como">Como funciona</a><a href="#ferramentas">Ferramentas</a><a href="#descarregar">Descarregar</a><a href="#codigo">Código aberto</a></nav>
+  <div class="lp-header-actions"><button class="lp-theme" type="button" data-theme-toggle aria-label="Alternar entre tema claro e escuro">◐</button>
+    <a class="button lp-header-secondary" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a>
+    <a class="button primary" href="https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe" data-download>Descarregar<span class="lp-long"> para Windows</span></a></div>
+</div></header>
+
+<main class="lp">
+  <section class="lp-hero lp-wrap" aria-labelledby="hero-title">
+    <div class="lp-hero-copy"><h1 id="hero-title">Cada cadeira arrumada, o próximo passo à vista.</h1>
+      <p class="lp-lead">O Caderno é uma aplicação para Windows que junta os materiais e prazos de cada cadeira, monta o plano do dia e dá-te flashcards, treino e simulados. Funciona com o Moodle ou com os teus ficheiros.</p>
+      <div class="lp-actions"><a class="button primary" href="https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe" data-download>Descarregar para Windows</a>
+        <a class="button" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a></div>
+      <p class="lp-release">Instalador para Windows x64<span data-release-info>, versão 0.1.1 de pré-lançamento</span>. Gratuito e de código aberto.</p>
+      <a class="lp-quiet-link" href="https://github.com/miguelaopt/caderno">Ver código no GitHub</a></div>
+    <figure class="lp-hero-shot"><img class="lp-shot" src="/screenshots/hoje-hero.webp" alt="Ecrã Hoje do Caderno: menu com as secções Organizar e Estudar, plano de hoje com um bloco de 20 minutos, próximos prazos e ficheiros que mudaram" width="1400" height="973" fetchpriority="high">
+      <figcaption>Ecrã Hoje, com dados fictícios.</figcaption></figure>
+  </section>
+
+  <section id="como" class="lp-section lp-wrap" aria-labelledby="como-title">
+    <div class="lp-margin"><span class="lp-number" aria-hidden="true">1</span><span class="lp-margin-label">Como funciona</span>
+      <p class="lp-note">O Moodle é opcional. Contas com autenticação única (SSO) podem não conseguir ligar; nesse caso, envia os ficheiros à mão.</p></div>
+    <div class="lp-body"><h2 id="como-title">Do material ao próximo passo</h2>
+      <ol class="lp-steps">
+        <li><h3>Instala e segue o guia</h3><p>Na primeira vez, um guia curto ajuda-te a juntar as cadeiras, indicar o tempo que tens e, se quiseres, configurar a IA.</p></li>
+        <li><h3>Junta as cadeiras</h3><p>Liga o Moodle da tua instituição para importar ficheiros e prazos, ou cria cadeiras e envia os teus ficheiros.</p></li>
+        <li><h3>Estuda o passo seguinte</h3><p>O Hoje mostra o que mudou, os prazos e os blocos de estudo. O plano volta a ser calculado quando marcas um bloco como estudado.</p></li>
+      </ol>
+      <figure class="lp-guide-shot"><img class="lp-shot" src="/screenshots/guia.webp" alt="Guia de início do Caderno no passo Cadeiras, com a ligação ao Moodle, a criação de uma cadeira manual e a escolha das cadeiras a acompanhar" loading="lazy" width="1400" height="897">
+        <figcaption>Guia de início, passo 2 de 5.</figcaption></figure></div>
+  </section>
+
+  <section id="ferramentas" class="lp-section lp-wrap" aria-labelledby="ferramentas-title">
+    <div class="lp-margin"><span class="lp-number" aria-hidden="true">2</span><span class="lp-margin-label">Ferramentas</span></div>
+    <div class="lp-body"><h2 id="ferramentas-title">Por dentro do Caderno</h2>
+      <p class="lp-intro">A organização e o plano funcionam sem IA. As ferramentas de estudo usam os resumos e as perguntas criados a partir dos teus PDFs, quando pedes a análise.</p>
+      <figure class="lp-annotated">
+        <div class="lp-annotated-image"><img class="lp-shot" src="/screenshots/materiais.webp" alt="Ecrã Materiais da cadeira Análise de Sistemas com pesquisa, filtro de favoritos, três PDFs e o formulário para enviar material" loading="lazy" width="1400" height="897">
+          <span class="lp-pin lp-pin-1" aria-hidden="true">1</span><span class="lp-pin lp-pin-2" aria-hidden="true">2</span><span class="lp-pin lp-pin-3" aria-hidden="true">3</span><span class="lp-pin lp-pin-4" aria-hidden="true">4</span></div>
+        <figcaption><ol class="lp-annotations">
+          <li>A pesquisa encontra nomes e resumos, com ou sem acentos.</li>
+          <li>Os favoritos são privados e não geram pedidos de IA.</li>
+          <li>Cada ficheiro mostra o estado do texto extraído e do resumo.</li>
+          <li>Envia apontamentos teus ou ficheiros que não estão no Moodle.</li>
+        </ol><p>Ecrã Materiais, com dados fictícios.</p></figcaption>
+      </figure>
+      <h3 class="lp-subhead">Para estudar</h3>
+      <div class="lp-tools">
+        <article class="lp-tool lp-tool-w7"><img src="/screenshots/explicacoes.webp" alt="Ecrã Explicações com escolha de cadeira e PDF e abordagens como explicação simples ou método Feynman" loading="lazy" width="1400" height="1147">
+          <div class="lp-tool-text"><h4>Explicações com fontes</h4><p>Pergunta sobre um PDF e recebe uma explicação com ligações às páginas usadas.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
+        <article class="lp-tool lp-tool-w5"><img src="/screenshots/flashcards.webp" alt="Ecrã Flashcards com uma carta revelada e os botões Ainda não, Quase e Percebi" loading="lazy" width="1400" height="1091">
+          <div class="lp-tool-text"><h4>Flashcards</h4><p>Revisão espaçada, com uma ou várias cadeiras no mesmo baralho.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
+        <article class="lp-tool lp-tool-w5"><img src="/screenshots/treino.webp" alt="Ecrã Treino com uma pergunta, uma resposta escrita e a resposta de referência" loading="lazy" width="1400" height="1091">
+          <div class="lp-tool-text"><h4>Treino</h4><p>Responde de memória, compara com a solução e regista o que correu bem.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
+        <article class="lp-tool lp-tool-w4"><img src="/screenshots/simulado.webp" alt="Ecrã Simulado pronto a começar, com três perguntas e 20 minutos" loading="lazy" width="1400" height="1091">
+          <div class="lp-tool-text"><h4>Simulado</h4><p>Até dez perguntas da cadeira em 20 minutos, sem consultar.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
+        <article class="lp-tool lp-tool-w3"><div class="lp-tool-text"><h4>Folha de revisão</h4><p>Os resumos e conceitos dos materiais de uma cadeira, reunidos numa página.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
+        <article class="lp-tool lp-tool-w7"><img src="/screenshots/foco.webp" alt="Ecrã Foco com o temporizador de 25 minutos e a escolha do material" loading="lazy" width="1400" height="1091">
+          <div class="lp-tool-text"><h4>Foco</h4><p>Blocos de tempo associados a um material, para estudar sem interrupções.</p><span class="lp-req">Funciona sem IA</span></div></article>
+        <article class="lp-tool lp-tool-w5"><div class="lp-tool-text"><h4>Plano e prazos</h4><p>O plano usa as datas de exame e o tempo de cada dia. Os prazos aparecem no Hoje.</p><span class="lp-req">Funciona sem IA</span></div></article>
+      </div></div>
+  </section>
+
+  <section id="descarregar" class="lp-windows" aria-labelledby="descarregar-title"><div class="lp-section lp-wrap">
+    <div class="lp-margin"><span class="lp-number" aria-hidden="true">3</span><span class="lp-margin-label">Descarregar</span></div>
+    <div class="lp-body lp-windows-grid">
+      <div><h2 id="descarregar-title">No teu computador</h2>
+        <p class="lp-intro">O Caderno corre só no teu Windows. Não há conta, nem servidor: os materiais ficam numa pasta tua, separados por cadeira.</p>
+        <div class="lp-download">
+          <div class="lp-download-option"><h3>Pelo site</h3><p>Descarrega diretamente o instalador da versão mais recente<span data-release-size></span>.</p>
+            <a class="button primary" href="https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe" data-download>Descarregar para Windows</a></div>
+          <div class="lp-download-option"><h3>Pelo GitHub</h3><p>Escolhe a versão na página de releases, com as notas de cada uma e as anteriores.</p>
+            <a class="button" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a></div>
+        </div>
+        <p class="lp-small">O ficheiro vem sempre das releases do GitHub. O instalador ainda não tem assinatura de código, por isso o Windows pode mostrar um aviso de editor desconhecido. <a href="https://github.com/miguelaopt/caderno/blob/main/docs/DESKTOP.md">Instruções de instalação</a>.</p>
+        <dl class="lp-facts">
+          <div><dt>Materiais</dt><dd>Em Documentos\Caderno\Materiais. Se o Windows redirecionar Documentos para o OneDrive, o Caderno usa essa pasta.</dd></div>
+          <div><dt>Sem internet</dt><dd>Os PDFs já importados abrem no visualizador da aplicação. Resumos, perguntas e flashcards já criados continuam disponíveis.</dd></div>
+          <div><dt>Com internet</dt><dd>Sincronizar o Moodle e fazer pedidos à IA.</dd></div>
+        </dl></div>
+      <div class="lp-windows-side">
+        <figure class="lp-tree"><pre aria-label="Exemplo de pastas: Documentos, Caderno, Materiais, a pasta do perfil, a pasta da cadeira Análise de Sistemas e os ficheiros dessa cadeira">Documentos
+└─ Caderno
+   └─ Materiais
+      └─ <span>id do perfil</span>
+         └─ Análise de Sistemas-3f9a1c2e
+            ├─ 7d2e…-Modelo relacional.pdf
+            ├─ 51b0…-Ficha 04.pdf
+            └─ c8a4…-Casos de uso.docx</pre>
+          <figcaption>Exemplo. O identificador no início evita ficheiros com o mesmo nome.</figcaption></figure>
+        <div class="lp-formats"><h3>Formatos aceites, até 20 MB</h3>
+          <p><strong>PDF</strong> abre dentro do Caderno e é o único formato analisado pela IA.</p>
+          <p>DOCX, PPTX, XLSX, ODT, ODP, ODS, DOC, PPT, XLS, TXT, MD, CSV, RTF, EPUB e ZIP ficam guardados e abrem com os programas do teu computador.</p></div>
+      </div></div></div>
+  </section>
+
+  <section id="ia" class="lp-section lp-wrap" aria-labelledby="ia-title">
+    <div class="lp-margin"><span class="lp-number" aria-hidden="true">4</span><span class="lp-margin-label">IA opcional</span></div>
+    <div class="lp-body lp-ai">
+      <div><h2 id="ia-title">A tua chave, a tua escolha</h2>
+        <p class="lp-intro">Sem chave, ficheiros, plano e progresso funcionam na mesma. Com a tua chave, os PDFs passam a ter resumos e perguntas para estudar.</p>
+        <ol class="lp-flow">
+          <li><strong>Escolhes o fornecedor</strong> Anthropic, OpenAI, DeepSeek, Groq ou outro serviço HTTPS compatível com Chat Completions.</li>
+          <li><strong>Autorizas a análise</strong> O envio de texto à IA tem um consentimento próprio, que podes retirar quando quiseres.</li>
+          <li><strong>Pedes o resumo</strong> Num PDF ou para os PDFs pendentes. Importar ficheiros ou sincronizar o Moodle nunca inicia uma análise.</li>
+        </ol>
+        <p class="lp-small">Cada pedido vai diretamente do teu computador para o fornecedor, que o pode cobrar na tua conta. A chave fica cifrada no computador e não aparece na exportação de dados.</p></div>
+      <figure class="lp-settings"><img class="lp-shot" src="/screenshots/chave-ia.webp" alt="Secção A tua chave de IA nas Definições, com fornecedor, chave de API, modelos para resumos e explicações e URL base para serviços compatíveis" loading="lazy" width="930" height="1244">
+        <figcaption>Definições, secção «A tua chave de IA».</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="codigo" class="lp-section lp-wrap" aria-labelledby="codigo-title">
+    <div class="lp-margin"><span class="lp-number" aria-hidden="true">5</span><span class="lp-margin-label">Código aberto</span></div>
+    <div class="lp-body lp-open">
+      <div><h2 id="codigo-title">Código aberto de verdade</h2>
+        <p class="lp-intro">O Caderno é publicado sob a licença MIT. Podes ler o código, compilar a tua própria versão, adaptá-la e propor alterações.</p>
+        <ul class="lp-links"><li><a href="https://github.com/miguelaopt/caderno">Repositório no GitHub</a></li><li><a href="https://github.com/miguelaopt/caderno#readme">README</a></li><li><a href="https://github.com/miguelaopt/caderno/issues">Issues</a></li><li><a href="https://github.com/miguelaopt/caderno/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a></li></ul></div>
+      <figure class="lp-code"><pre><code>npm ci
+npm run desktop:dev</code></pre><figcaption>Requer Node 24. O segundo comando abre a aplicação a partir do código.</figcaption></figure>
+      <div class="lp-control"><h3>Sem conta, sem servidor</h3>
+        <p>Não há nada para registar. Os ficheiros, o progresso e as chaves ficam no teu computador; só o Moodle e o fornecedor de IA que escolheres recebem pedidos.</p></div>
+      <div class="lp-control"><h3>O que controlas</h3>
+        <p>Exportar os dados, apagar tudo, desligar o Moodle, escolher o fornecedor de IA e retirar a autorização de análise.</p></div>
+    </div>
+  </section>
+
+  <section class="lp-closing lp-wrap" aria-labelledby="fecho-title"><h2 id="fecho-title">Começa pelas cadeiras deste semestre.</h2>
+    <div class="lp-actions"><a class="button primary" href="https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe" data-download>Descarregar para Windows</a>
+      <a class="button" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a></div></section>
+</main>
+
+<footer class="lp-footer"><div class="lp-wrap"><p>Caderno é independente e não é afiliado ao Moodle. Código sob licença MIT.</p>
+  <nav aria-label="Rodapé"><a href="https://github.com/miguelaopt/caderno">GitHub</a><a href="https://github.com/miguelaopt/caderno/releases">Releases</a><a href="https://github.com/miguelaopt/caderno#readme">Documentação</a><a href="/privacidade">Privacidade e termos</a></nav></div></footer>
+</body>
+</html>

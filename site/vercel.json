@@ -1,0 +1,11 @@
+{
+  "cleanUrls": true,
+  "headers": [
+    { "source": "/(fonts|screenshots)/(.*)", "headers": [{ "key": "cache-control", "value": "public, max-age=604800" }] },
+    { "source": "/(.*)", "headers": [
+      { "key": "x-content-type-options", "value": "nosniff" },
+      { "key": "referrer-policy", "value": "strict-origin-when-cross-origin" },
+      { "key": "content-security-policy", "value": "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self' 'sha256-3XGVg1UrJbOTEJWM8DVtTaQ/T+19H+axE0JdLaNTB8w='; connect-src https://api.github.com; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" }
+    ] }
+  ]
+}

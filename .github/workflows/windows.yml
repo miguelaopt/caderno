@@ -3,11 +3,14 @@ name: Windows desktop
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
   installer:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +20,13 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run typecheck
+      - run: npm test
+      - name: Confirmar versão da tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ('${{ github.ref_name }}' -notlike "v$version*") { throw "A tag ${{ github.ref_name }} não corresponde à versão $version do package.json" }
       - run: npm run desktop:dist
       - name: Confirmar instalador
         shell: pwsh
@@ -29,3 +39,18 @@ jobs:
           name: caderno-windows-x64
           path: release/Caderno-*-Windows-x64.exe
           if-no-files-found: error
+      # Uma tag v* publica o instalador numa release. O site lê-a pela API do GitHub e a app
+      # instalada usa o latest.yml para se atualizar. Tags com hífen ficam como pré-lançamento
+      # e não chegam às atualizações automáticas.
+      - name: Publicar release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = (Get-ChildItem release/Caderno-*-Windows-x64.exe | Select-Object -First 1).FullName
+          $files = @($installer, "$installer.blockmap", 'release/latest.yml')
+          foreach ($file in $files) { if (-not (Test-Path $file)) { throw "Falta $file para as atualizações automáticas" } }
+          $flags = @('--generate-notes', '--title', 'Caderno ${{ github.ref_name }}')
+          if ('${{ github.ref_name }}' -like '*-*') { $flags += '--prerelease' }
+          gh release create '${{ github.ref_name }}' @files @flags

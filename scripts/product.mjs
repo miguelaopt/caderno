@@ -2,16 +2,14 @@
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { readFile, rm, writeFile } from 'node:fs/promises';
-import { resolve, join, relative, isAbsolute, sep } from 'node:path';
-import { openProductDb, PRODUCT_FILES_DIR } from '../lib/product-db.mjs';
-import { id, hash, passwordHash, passwordMatches, emailCode, emailCodeMatches, encryptToken, newSession, sessionUser, sessionCookie } from '../lib/product-security.mjs';
+import { resolve, join, relative, isAbsolute, sep, dirname } from 'node:path';
+import { openProductDb, PRODUCT_DB_PATH, PRODUCT_FILES_DIR } from '../lib/product-db.mjs';
+import { randomBytes } from 'node:crypto';
+import { id, hash, passwordHash, passwordMatches, encryptToken, newSession, sessionUser, sessionCookie } from '../lib/product-security.mjs';
 import { assertFunctions, storeFile, supportedDocument, syncUser } from '../lib/product-sync.mjs';
 import { dailyPlan } from '../lib/product-plan.mjs';
-import { analyzeFile, askCourse, remaining, priceRates } from '../lib/product-ai.mjs';
+import { analyzeFile, askCourse } from '../lib/product-ai.mjs';
 import { aiSettings, aiConfigured, saveAiSettings, deleteAiSettings } from '../lib/product-ai-provider.mjs';
-import { mailConfigured, runDigest, sendEmailCode } from '../lib/product-digest.mjs';
-import { billingConfigured, checkoutSession, portalSession, handleWebhook, cancelBeforeDelete } from '../lib/product-billing.mjs';
-import { effectivePlan, hasComplimentaryAccess, paidThroughStripe, hostedBillingEnabled } from '../lib/product-entitlements.mjs';
 import { callWs, baseUrl, loginWithPassword, nomeLimpo } from '../lib/moodle.mjs';
 
 try { process.loadEnvFile('.env'); } catch {}
@@ -19,6 +17,7 @@ const db = openProductDb();
 const port = Number(process.env.PORT ?? 4321);
 const now = () => Math.floor(Date.now() / 1000);
 const secure = process.env.NODE_ENV === 'production';
+const desktop = process.env.NODE_ENV === 'desktop';
 const activeSyncs = new Set();
 const activeAnalysis = new Set();
 const analysisRequested = new Set();
@@ -76,43 +75,64 @@ function ownCourse(userId, courseId) {
   return course;
 }
 
+function insideUserFiles(userId, stored) {
+  const root = resolve(PRODUCT_FILES_DIR, userId);
+  const path = resolve(String(stored));
+  const inside = relative(root, path);
+  if (!inside || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside))
+    throw Object.assign(new Error('Ficheiro indisponível.'), { status: 403 });
+  return path;
+}
+
+function noAccountsOnDesktop() {
+  if (desktop) throw Object.assign(new Error('A aplicação Windows usa um perfil local, sem conta.'), { status: 404 });
+}
+
+// Perfil único da app Windows: reutiliza o perfil com mais materiais (instalações antigas
+// podiam ter contas) ou cria um novo. O Electron recebe o token e coloca-o como cookie.
+export function localSession() {
+  let user = db.prepare(`SELECT u.id FROM users u ORDER BY (SELECT count(*) FROM files f WHERE f.user_id=u.id) DESC, u.created_at LIMIT 1`).get();
+  if (!user) {
+    user = { id: id() };
+    db.prepare('INSERT INTO users(id,email,password_hash,created_at) VALUES(?,?,?,?)')
+      .run(user.id, `perfil-${user.id}@local`, passwordHash(randomBytes(32).toString('hex')), now());
+    db.prepare('INSERT INTO preferences(user_id) VALUES(?)').run(user.id);
+  }
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+  return newSession(db, user.id).token;
+}
+
 async function startSync(userId) {
   if (activeSyncs.has(userId)) return { status: 'running' };
   activeSyncs.add(userId);
   try {
-    const result = { status: 'ok', ...await syncUser(db, userId) };
-    setImmediate(() => analyzePending(userId).catch((error) => console.error('Análise:', error.message)));
-    return result;
+    return { status: 'ok', ...await syncUser(db, userId) };
   }
   finally { activeSyncs.delete(userId); }
 }
 
-async function analyzePending(userId, manual = false) {
+// Com a chave pessoal, cada pedido pode ter custos: a fila só corre quando a pessoa a inicia.
+async function analyzePending(userId) {
   if (!aiConfigured(db, userId)) return;
-  if (aiSettings(db, userId) && !manual) return;
   if (!db.prepare('SELECT ai_consent_at FROM preferences WHERE user_id=?').get(userId)?.ai_consent_at) return;
   if (activeAnalysis.has(userId)) { analysisRequested.add(userId); return; }
   activeAnalysis.add(userId);
   try {
-    const user = db.prepare('SELECT plan,email_verified_at,complimentary_at,complimentary_override_at FROM users WHERE id=?').get(userId);
-    if (!user) return;
     const pending = db.prepare(`SELECT f.id FROM files f JOIN courses c ON c.id=f.course_id
       LEFT JOIN analyses a ON a.file_id=f.id AND a.hash=f.hash
       WHERE f.user_id=? AND c.selected=1 AND f.text_status='ok' AND a.file_id IS NULL ORDER BY f.first_seen_at`).all(userId);
     for (const file of pending) {
-      if (remaining(db, userId, effectivePlan(user)).summaries === 0) break;
       try { await queueAi(userId, () => analyzeFile(db, userId, file.id)); }
       catch (error) { console.error('Análise:', error.message); }
     }
   } finally {
     activeAnalysis.delete(userId);
     if (analysisRequested.delete(userId))
-      setImmediate(() => analyzePending(userId, manual).catch((error) => console.error('Análise:', error.message)));
+      setImmediate(() => analyzePending(userId).catch((error) => console.error('Análise:', error.message)));
   }
 }
 
 function state(user) {
-  const plan = effectivePlan(user);
   const courses = db.prepare('SELECT id,name,shortname,selected,source,exam_at,last_synced_at FROM courses WHERE user_id=? ORDER BY selected DESC,name').all(user.id);
   const files = db.prepare(`SELECT f.id,f.course_id,f.filename,f.mime,f.size,f.text_status,length(f.text) AS text_chars,
     json_array_length(f.pages_json) AS page_count,f.source,f.first_seen_at,f.changed_at,f.favorite,a.summary,a.topics_json
@@ -136,29 +156,18 @@ function state(user) {
   for (const row of studied) {
     try { for (const topic of JSON.parse(String(row.topics_json || '{}')).topicos || []) topics.add(topic); } catch {}
   }
-  return { user: { id: user.id, email: user.email, email_verified_at: user.email_verified_at, plan,
-    complimentary: hasComplimentaryAccess(user), complimentaryPending: Boolean(user.complimentary_at && !hasComplimentaryAccess(user)),
-    stripeSubscription: paidThroughStripe(user) }, courses, files, deadlines, connection: connection || null, preference, sync: sync || null,
+  return { user: { id: user.id, email: desktop ? null : user.email }, courses, files, deadlines, connection: connection || null, preference, sync: sync || null,
     progress: { daysThisWeek: days.length, quizTotal: Number(quiz.total), quizCorrect: Number(quiz.correct), topics: [...topics].slice(0, 30) },
-    admin: !!process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID,
-    digestAvailable: mailConfigured(),
-    billingAvailable: billingConfigured() && mailConfigured(), hostedBilling: hostedBillingEnabled(),
-    desktop: process.env.NODE_ENV === 'desktop', moodleUrl: process.env.NODE_ENV === 'desktop' ? process.env.MOODLE_URL || '' : undefined,
+    desktop, version: process.env.CADERNO_VERSION || null, moodleUrl: desktop ? process.env.MOODLE_URL || '' : undefined,
+    materialsDir: desktop ? resolve(PRODUCT_FILES_DIR) : undefined, dataDir: desktop ? dirname(resolve(PRODUCT_DB_PATH)) : undefined, onboarded: !!preference?.onboarded_at,
     analysis: { pending: Number(pendingAnalysis), running: activeAnalysis.has(user.id) },
-    ai: { configured: aiConfigured(db, user.id), settings: aiSettings(db, user.id), consented: !!preference?.ai_consent_at,
-      remaining: remaining(db, user.id, plan) },
+    ai: { configured: aiConfigured(db, user.id), settings: aiSettings(db, user.id), consented: !!preference?.ai_consent_at },
     plan: dailyPlan(db, user.id), changesSince: preference?.last_seen_at || null };
 }
 
 const routes = {
-  'GET /api/public': async (req, res) => send(res, { billingAvailable: billingConfigured() && mailConfigured(), hostedBilling: hostedBillingEnabled() }),
-  'POST /api/stripe/webhook': async (req, res) => {
-    const payload = await body(req, 1024 * 1024);
-    const signature = req.headers['stripe-signature'];
-    if (typeof signature !== 'string') throw new Error('Assinatura Stripe em falta.');
-    send(res, await handleWebhook(db, payload, signature));
-  },
   'POST /api/register': async (req, res) => {
+    noAccountsOnDesktop();
     authLimit(req, true);
     const data = await jsonBody(req);
     const email = String(data.email || '').trim().toLowerCase();
@@ -171,6 +180,7 @@ const routes = {
     send(res, { ok: true }, 201, { 'set-cookie': sessionCookie(session.token, secure) });
   },
   'POST /api/login': async (req, res) => {
+    noAccountsOnDesktop();
     authLimit(req);
     const data = await jsonBody(req);
     const user = db.prepare('SELECT * FROM users WHERE email=?').get(String(data.email || '').trim().toLowerCase());
@@ -237,7 +247,6 @@ const routes = {
     const selected = [...new Set(Array.isArray(data.selected) ? data.selected : [])];
     const owned = db.prepare('SELECT id FROM courses WHERE user_id=?').all(user.id).map((row) => row.id);
     if (selected.some((courseId) => !owned.includes(courseId))) throw new Error('Escolheste uma cadeira que não pertence à tua conta.');
-    if (hostedBillingEnabled() && effectivePlan(user) === 'free' && selected.length > 1) throw new Error('O plano Grátis permite uma cadeira.');
     db.exec('BEGIN');
     try {
       db.prepare('UPDATE courses SET selected=0 WHERE user_id=?').run(user.id);
@@ -247,7 +256,6 @@ const routes = {
     send(res, { ok: true });
     if (db.prepare("SELECT 1 FROM courses WHERE user_id=? AND selected=1 AND source='moodle' LIMIT 1").get(user.id))
       startSync(user.id).catch((error) => console.error('Sincronização:', error.message));
-    setImmediate(() => analyzePending(user.id).catch((error) => console.error('Análise:', error.message)));
   },
   'POST /api/preferences': async (req, res) => {
     const user = requireUser(req);
@@ -267,7 +275,20 @@ const routes = {
     if (typeof data.enabled !== 'boolean') throw new Error('Escolhe se permites a análise por IA.');
     db.prepare('UPDATE preferences SET ai_consent_at=? WHERE user_id=?').run(data.enabled ? now() : null, user.id);
     send(res, { ok: true });
-    if (data.enabled && !aiSettings(db, user.id)) setImmediate(() => analyzePending(user.id).catch((error) => console.error('Análise:', error.message)));
+  },
+  'POST /api/theme': async (req, res) => {
+    const user = requireUser(req);
+    const { theme } = await jsonBody(req);
+    if (!['dark', 'light'].includes(theme)) throw new Error('Tema inválido.');
+    db.prepare('UPDATE preferences SET theme=? WHERE user_id=?').run(theme, user.id);
+    send(res, { ok: true });
+  },
+  'POST /api/onboarding': async (req, res) => {
+    const user = requireUser(req);
+    const data = await jsonBody(req);
+    if (typeof data.done !== 'boolean') throw new Error('Indica se o guia foi concluído.');
+    db.prepare('UPDATE preferences SET onboarded_at=? WHERE user_id=?').run(data.done ? now() : null, user.id);
+    send(res, { ok: true });
   },
   'POST /api/ai-settings': async (req, res) => {
     const user = requireUser(req);
@@ -279,45 +300,6 @@ const routes = {
     deleteAiSettings(db, user.id);
     send(res, { ok: true });
   },
-  'POST /api/digest': async (req, res) => {
-    const user = requireUser(req);
-    const data = await jsonBody(req);
-    if (!['off', 'email'].includes(data.channel) || (data.channel === 'email' && (!user.email_verified_at || !mailConfigured() ||
-      !Number.isInteger(data.hour) || data.hour < 0 || data.hour > 23)))
-      throw new Error('Confirma o teu email primeiro ou escolhe uma hora válida.');
-    db.prepare('UPDATE preferences SET digest_channel=?,digest_hour=?,digest_sent_on=NULL WHERE user_id=?')
-      .run(data.channel, data.channel === 'email' ? data.hour : null, user.id);
-    send(res, { ok: true });
-  },
-  'POST /api/request-email-code': async (req, res) => {
-    const user = requireUser(req);
-    if (user.email_verified_at) return send(res, { ok: true });
-    const last = db.prepare('SELECT sent_at FROM email_verifications WHERE user_id=?').get(user.id);
-    if (last && Number(last.sent_at) > now() - 60) throw Object.assign(new Error('Espera um minuto antes de pedir outro código.'), { status: 429 });
-    const verification = emailCode();
-    db.prepare(`INSERT INTO email_verifications(user_id,code_hash,expires_at,sent_at,attempts) VALUES(?,?,?,?,0)
-      ON CONFLICT(user_id) DO UPDATE SET code_hash=excluded.code_hash,expires_at=excluded.expires_at,
-      sent_at=excluded.sent_at,attempts=0`).run(user.id, verification.digest, now() + 600, now());
-    try { await sendEmailCode(user.email, verification.code); }
-    catch (error) { db.prepare('DELETE FROM email_verifications WHERE user_id=?').run(user.id); throw error; }
-    send(res, { ok: true });
-  },
-  'POST /api/verify-email': async (req, res) => {
-    const user = requireUser(req);
-    const data = await jsonBody(req);
-    const verification = db.prepare('SELECT * FROM email_verifications WHERE user_id=?').get(user.id);
-    if (!verification || Number(verification.expires_at) < now() || Number(verification.attempts) >= 5)
-      throw new Error('O código expirou. Pede um novo.');
-    db.prepare('UPDATE email_verifications SET attempts=attempts+1 WHERE user_id=?').run(user.id);
-    if (!emailCodeMatches(data.code, verification.code_hash)) throw new Error('Código incorreto.');
-    db.exec('BEGIN');
-    try {
-      db.prepare('UPDATE users SET email_verified_at=? WHERE id=?').run(now(), user.id);
-      db.prepare('DELETE FROM email_verifications WHERE user_id=?').run(user.id);
-      db.exec('COMMIT');
-    } catch (error) { db.exec('ROLLBACK'); throw error; }
-    send(res, { ok: true });
-  },
   'POST /api/analyze': async (req, res) => {
     const user = requireUser(req);
     const data = await jsonBody(req);
@@ -327,7 +309,7 @@ const routes = {
     const user = requireUser(req);
     if (!aiConfigured(db, user.id) || !db.prepare('SELECT ai_consent_at FROM preferences WHERE user_id=?').get(user.id)?.ai_consent_at)
       throw new Error('Ativa primeiro a análise por IA nas Definições.');
-    analyzePending(user.id, true).catch((error) => console.error('Análise:', error.message));
+    analyzePending(user.id).catch((error) => console.error('Análise:', error.message));
     send(res, { ok: true, status: 'started' });
   },
   'POST /api/ask': async (req, res) => {
@@ -335,18 +317,6 @@ const routes = {
     const data = await jsonBody(req);
     send(res, await queueAi(user.id, () => askCourse(db, user.id, data.courseId, data.question, data.fileId || null)));
   },
-  'GET /api/admin': async (req, res) => {
-    const user = requireUser(req);
-    if (!process.env.ADMIN_USER_ID || user.id !== process.env.ADMIN_USER_ID)
-      throw Object.assign(new Error('Acesso reservado.'), { status: 403 });
-    const costs = db.prepare(`SELECT u.email,strftime('%Y-%m',datetime(a.created_at,'unixepoch')) AS month,
-      count(*) AS requests,sum(a.input_tokens) AS input_tokens,sum(a.output_tokens) AS output_tokens,
-      round(sum(a.cost_usd),4) AS cost_usd FROM ai_usage a JOIN users u ON u.id=a.user_id
-      GROUP BY u.id,month ORDER BY month DESC,cost_usd DESC`).all();
-    send(res, { costs, rates: { summary: priceRates('summary'), question: priceRates('question') } });
-  },
-  'POST /api/checkout': async (req, res) => send(res, await checkoutSession(db, requireUser(req))),
-  'POST /api/portal': async (req, res) => send(res, await portalSession(db, requireUser(req).id)),
   'POST /api/exam': async (req, res) => {
     const user = requireUser(req);
     const data = await jsonBody(req);
@@ -468,8 +438,6 @@ const routes = {
     const data = await jsonBody(req);
     const name = String(data.name || '').trim();
     if (!name || name.length > 100) throw new Error('Escreve o nome da cadeira (até 100 caracteres).');
-    const selected = db.prepare('SELECT count(*) n FROM courses WHERE user_id=? AND selected=1').get(user.id).n;
-    if (hostedBillingEnabled() && effectivePlan(user) === 'free' && Number(selected) >= 1) throw new Error('O plano Grátis permite uma cadeira.');
     const courseId = id();
     db.prepare("INSERT INTO courses(id,user_id,name,shortname,selected,source) VALUES(?,?,?,?,1,'manual')")
       .run(courseId, user.id, name, name.slice(0, 20));
@@ -487,7 +455,21 @@ const routes = {
     const bytes = await body(req, 20 * 1024 * 1024);
     const result = await storeFile(db, { userId: user.id, courseId: course.id, filename, source: 'upload', bytes });
     send(res, { ok: true, ...result }, 201);
-    setImmediate(() => analyzePending(user.id).catch((error) => console.error('Análise:', error.message)));
+  },
+  'POST /api/open-file': async (req, res) => {
+    const user = requireUser(req);
+    if (!desktop) throw Object.assign(new Error('Esta opção só existe na aplicação Windows.'), { status: 404 });
+    const data = await jsonBody(req);
+    const file = db.prepare('SELECT path FROM files WHERE id=? AND user_id=?').get(data.fileId, user.id);
+    if (!file?.path) throw Object.assign(new Error('Ficheiro não encontrado.'), { status: 404 });
+    const path = insideUserFiles(user.id, file.path);
+    const { shell } = await import('electron');
+    if (data.reveal) shell.showItemInFolder(path);
+    else {
+      const problem = await shell.openPath(path);
+      if (problem) throw new Error(`O Windows não conseguiu abrir o ficheiro: ${problem}`);
+    }
+    send(res, { ok: true });
   },
   'POST /api/sync': async (req, res) => send(res, await startSync(requireUser(req).id)),
   'GET /api/export': async (req, res) => {
@@ -508,13 +490,13 @@ const routes = {
   'POST /api/delete-account': async (req, res) => {
     const user = requireUser(req);
     const data = await jsonBody(req);
-    const stored = db.prepare('SELECT password_hash FROM users WHERE id=?').get(user.id);
-    if (!passwordMatches(data.password, stored.password_hash)) throw new Error('Palavra-passe incorreta.');
-    await cancelBeforeDelete(db, user.id);
+    if (data.confirm !== 'APAGAR') throw new Error('Escreve APAGAR para confirmar.');
     db.prepare('DELETE FROM users WHERE id=?').run(user.id);
     db.prepare('DELETE FROM analysis_cache WHERE NOT EXISTS (SELECT 1 FROM files WHERE files.hash=analysis_cache.hash)').run();
     await rm(join(PRODUCT_FILES_DIR, user.id), { recursive: true, force: true });
-    send(res, { ok: true }, 200, { 'set-cookie': 'caderno_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
+    // No Windows, a app continua com um perfil novo e vazio.
+    const cookie = desktop ? sessionCookie(localSession(), false) : 'caderno_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0';
+    send(res, { ok: true }, 200, { 'set-cookie': cookie });
   },
 };
 
@@ -531,11 +513,7 @@ export const server = createServer(async (req, res) => {
       const user = requireUser(req);
       const file = db.prepare('SELECT path,filename,mime FROM files WHERE id=? AND user_id=?').get(url.searchParams.get('id'), user.id);
       if (!file?.path) return send(res, { erro: 'Ficheiro não encontrado.' }, 404);
-      const root = resolve(PRODUCT_FILES_DIR, user.id);
-      const path = resolve(String(file.path));
-      const inside = relative(root, path);
-      if (!inside || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside))
-        return send(res, { erro: 'Ficheiro indisponível.' }, 403);
+      const path = insideUserFiles(user.id, file.path);
       const pdf = file.mime === 'application/pdf';
       const encodedName = encodeURIComponent(String(file.filename)).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
       res.writeHead(200, { 'content-type': pdf ? 'application/pdf' : 'application/octet-stream',
@@ -545,14 +523,14 @@ export const server = createServer(async (req, res) => {
     }
     const handler = routes[`${req.method} ${url.pathname}`];
     if (handler) return await handler(req, res, url);
-    const assets = { '/': 'product.html', '/app': 'product.html', '/privacidade': 'product.html', '/termos': 'product.html', '/product.css': 'product.css',
+    const assets = { '/': 'product.html', '/app': 'product.html', '/product.css': 'product.css',
       '/product.js': 'product.js', '/manifest.webmanifest': 'manifest.webmanifest', '/sw.js': 'sw.js',
-      '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
-      '/screenshots/hoje.png': 'screenshots/hoje.png', '/screenshots/materiais.png': 'screenshots/materiais.png' };
+      '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png', '/fonts/newsreader.woff2': 'fonts/newsreader.woff2' };
     const asset = assets[url.pathname];
     if (!asset || req.method !== 'GET') return send(res, { erro: 'Página não encontrada.' }, 404);
     const type = asset.endsWith('.html') ? 'text/html; charset=utf-8' : asset.endsWith('.css') ? 'text/css; charset=utf-8' :
-      asset.endsWith('.js') ? 'text/javascript; charset=utf-8' : asset.endsWith('.png') ? 'image/png' : 'application/manifest+json';
+      asset.endsWith('.js') ? 'text/javascript; charset=utf-8' : asset.endsWith('.png') ? 'image/png' :
+      asset.endsWith('.woff2') ? 'font/woff2' : 'application/manifest+json';
     const body = await readFile(new URL(`../web/${asset}`, import.meta.url));
     res.writeHead(200, { 'content-type': type, 'x-content-type-options': 'nosniff' });
     res.end(body);
@@ -577,8 +555,6 @@ setImmediate(() => {
     WHERE c.selected=1 AND c.source='moodle' AND c.last_synced_at IS NULL`).all();
   for (const row of pending)
     startSync(row.user_id).catch((error) => console.error('Sincronização inicial:', error.message));
-  for (const row of db.prepare('SELECT user_id FROM preferences WHERE ai_consent_at IS NOT NULL').all())
-    analyzePending(row.user_id).catch((error) => console.error('Análise inicial:', error.message));
 });
 setInterval(async () => {
   const users = db.prepare('SELECT user_id FROM moodle_connections').all();
@@ -586,5 +562,3 @@ setInterval(async () => {
     try { await startSync(row.user_id); } catch (error) { console.error('Sincronização agendada:', error.message); }
   }
 }, 6 * 3600 * 1000).unref();
-setInterval(() => runDigest(db).catch((error) => console.error('Digest:', error.message)), 5 * 60 * 1000).unref();
-setImmediate(() => runDigest(db).catch((error) => console.error('Digest:', error.message)));

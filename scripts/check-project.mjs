@@ -32,5 +32,11 @@ if (mode === 'lint') {
     await access(`web${asset}`);
   }
   JSON.parse(await readFile('web/manifest.webmanifest', 'utf8'));
+  // O site estático (Vercel, pasta site/) só pode referir ficheiros que existem.
+  JSON.parse(await readFile('site/vercel.json', 'utf8'));
+  for (const page of ['site/index.html', 'site/privacidade.html']) {
+    const source = await readFile(page, 'utf8');
+    for (const [, asset] of source.matchAll(/(?:src|href)="\/([^"#?]+\.[a-z0-9]+)"/g)) await access(`site/${asset}`);
+  }
   console.log('Aplicação estática e servidor prontos.');
 } else throw new Error(`Modo desconhecido: ${mode}`);

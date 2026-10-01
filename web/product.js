@@ -4,9 +4,9 @@ const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&
 const fmt = (seconds) => new Date(seconds * 1000).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
 const flash = (message) => { live.textContent = message; setTimeout(() => { if (live.textContent === message) live.textContent = ''; }, 6000); };
 let state = null;
-let publicConfig = { billingAvailable: false };
-let screen = location.pathname === '/app' ? 'today' : 'landing';
+let screen = 'today';
 let authMode = 'register';
+let guideStep = 0;
 let selectedCourse = null;
 let fileDetail = null;
 let cardDeck = null;
@@ -14,7 +14,6 @@ let cardIndex = 0;
 let cardRevealed = false;
 let cardCourseIds = new Set();
 let answer = null;
-let adminData = null;
 let fileSearch = '';
 let favoritesOnly = false;
 let syncPoll = null;
@@ -50,7 +49,6 @@ async function api(path, options = {}) {
 const post = (path, data) => api(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
 
 async function refresh() {
-  publicConfig = await api('/api/public');
   try { state = await api('/api/state'); }
   catch (error) { if (error.message.includes('Inicia sessão')) state = null; else throw error; }
   render();
@@ -64,144 +62,139 @@ async function refresh() {
   }
 }
 
-function header() {
-  return `<header class="site-header wrap"><a class="logo" href="/">caderno<span style="color:var(--accent)">.</span></a>
-    <nav><a class="desktop" href="/#como">Como funciona</a><a class="desktop" href="/#precos">Preços</a>
-    <button data-action="theme" aria-label="Alternar tema">◐</button><button class="primary" data-action="open-app">${state ? 'Abrir o Caderno' : 'Começar grátis'}</button></nav></header>`;
+// Na app Windows o tema fica no perfil: a porta local muda a cada arranque e o localStorage não persiste.
+function currentTheme() {
+  if (state?.preference?.theme) return state.preference.theme;
+  try { return localStorage.getItem('caderno-theme') || 'dark'; } catch { return 'dark'; }
 }
 
-function footer() {
-  return `<footer class="footer wrap"><div>© ${new Date().getFullYear()} Caderno. Aplicação independente, sem afiliação ao Moodle.</div>
-    <div><a href="/privacidade" data-action="privacy">Privacidade</a><a href="/termos" data-action="terms">Termos</a></div></footer>`;
-}
-
-function landing() {
-  root.innerHTML = `${header()}<main>
-    <section class="hero wrap"><div><div class="eyebrow">O teu estudo, com rumo</div><h1>Chegas a casa e já sabes o que estudar.</h1>
-      <p>O Caderno junta os materiais das tuas cadeiras, mostra o que mudou e ajuda-te a escolher um plano realista para hoje.</p>
-      <div class="row"><button class="primary" data-action="open-app">Começar grátis →</button><a href="#como" class="button">Ver como funciona</a></div>
-      <p><small>Também funciona sem ligação ao Moodle: podes enviar os teus PDFs.</small></p></div>
-      <div class="hero-art" aria-label="Exemplo ilustrativo do ecrã Hoje"><div class="date">HOJE · PLANO ILUSTRATIVO</div><h2 style="margin:12px 0 26px">Uma coisa de cada vez.</h2>
-        <div class="art-row"><div><b>Rever a matéria nova</b><span>Resumo e conceitos principais</span></div><strong>25 min</strong></div>
-        <div class="art-row"><div><b>Resolver uma ficha</b><span>Começar pelos exercícios base</span></div><strong>30 min</strong></div>
-        <div class="art-row"><div><b>Conferir o prazo</b><span>Entrega da próxima semana</span></div><strong>5 min</strong></div>
-        <p><small>Ilustração. O plano real usa as tuas cadeiras e o tempo que tens.</small></p></div></section>
-    <section id="como" class="section"><div class="wrap"><span class="eyebrow">Simples de começar</span><h2>Três passos, sem confusão.</h2><div class="grid">
-      <div class="card"><span class="number">01</span><h3>Liga o Moodle</h3><p>Introduz o utilizador e a palavra-passe do Moodle para encontrar as tuas cadeiras.</p></div>
-      <div class="card"><span class="number">02</span><h3>Escolhe as cadeiras</h3><p>Segue só as que te interessam. Sem Moodle, cria uma cadeira e envia PDFs.</p></div>
-      <div class="card"><span class="number">03</span><h3>Abre o Hoje</h3><p>Vê os materiais, o que mudou e por onde começar a estudar.</p></div></div></div></section>
-    <section class="section"><div class="wrap"><span class="eyebrow">Por dentro da aplicação</span><h2>Menos ruído. Mais tempo para estudar.</h2>
-      <p class="muted">Ecrãs reais do Caderno com dados fictícios de demonstração.</p><div class="screenshot-grid">
-      <figure><img src="/screenshots/hoje.png" alt="Ecrã Hoje com plano de estudo, alterações nas cadeiras e próximos prazos" loading="lazy" width="1280" height="1200"><figcaption>O Hoje reúne o essencial numa só página.</figcaption></figure>
-      <figure><img src="/screenshots/materiais.png" alt="Ecrã Materiais com PDFs privados organizados por cadeira" loading="lazy" width="1280" height="1200"><figcaption>Os materiais ficam organizados por cadeira.</figcaption></figure>
-      </div></div></section>
-    <section class="section"><div class="wrap"><span class="eyebrow">Privacidade</span><h2>Os teus materiais ficam teus.</h2><div class="grid">
-      <div class="card"><h3>Palavra-passe usada só na ligação</h3><p>O Moodle devolve uma chave de acesso, que guardamos cifrada no servidor. Podes desligar a ligação quando quiseres.</p></div>
-      <div class="card"><h3>Por cadeira e por pessoa</h3><p>Os ficheiros e os resumos são privados. Não publicamos materiais de docentes.</p></div>
-      <div class="card"><h3>Controlo dos dados</h3><p>Exporta os teus dados ou apaga a conta nas definições. A revogação da chave é feita no próprio Moodle.</p></div></div></div></section>
-    ${publicConfig.hostedBilling ? `<section id="precos" class="section"><div class="wrap"><span class="eyebrow">Preços</span><h2>Feito para caber no orçamento de estudante.</h2><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
-      <div class="card"><h3>Grátis</h3><div class="price">€0</div><p>Uma cadeira, PDFs manuais e plano de estudo.</p><button data-action="open-app">Começar</button></div>
-      <div class="card"><h3>Estudante</h3><div class="price">€2,99 <small>/ mês</small></div><p>Todas as cadeiras, mais análises e gestão de assinatura no Stripe.</p>${publicConfig.billingAvailable ? '<button data-action="open-app">Escolher Estudante</button>' : '<button disabled>Em breve</button>'}</div></div></div></section>` : `<section id="precos" class="section"><div class="wrap"><span class="eyebrow">Código aberto</span><h2>Estuda com as tuas ferramentas.</h2><p>Cria as cadeiras de que precisas. A IA é opcional: usa a tua chave de API e escolhe o fornecedor nas Definições.</p><button class="primary" data-action="open-app">Abrir o Caderno</button></div></section>`}
-    <section class="section"><div class="wrap"><span class="eyebrow">Perguntas frequentes</span><h2>Antes de começares</h2><div class="grid">
-      <div class="card"><h3>É uma app oficial do Moodle?</h3><p>Não. O Caderno é independente e não tem afiliação ao Moodle.</p></div>
-      <div class="card"><h3>Preciso de ligar o Moodle?</h3><p>Não. Podes criar uma cadeira e enviar os teus PDFs.</p></div>
-      <div class="card"><h3>O que acontece se a ligação expirar?</h3><p>Os teus materiais continuam acessíveis. Podes voltar a ligar o Moodle quando quiseres.</p></div></div></div></section>
-  </main>${footer()}`;
-}
-
-function auth() {
-  root.innerHTML = `${header()}<main class="wrap"><div class="auth"><span class="eyebrow">Conta Caderno</span><h1>${authMode === 'register' ? 'Começar a estudar' : 'Bem-vindo de volta'}</h1>
-    <div class="card"><form id="auth-form"><label>Email<input name="email" type="email" autocomplete="email" required></label>
-      <label>Palavra-passe<input name="password" type="password" minlength="12" autocomplete="${authMode === 'register' ? 'new-password' : 'current-password'}" required></label>
-      <button class="primary" type="submit">${authMode === 'register' ? 'Criar conta' : 'Entrar'}</button></form>
-      <p class="swap"><button data-action="swap-auth">${authMode === 'register' ? 'Já tenho conta' : 'Criar uma conta'}</button></p></div></div></main>${footer()}`;
-}
-
-function shell(content) {
-  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="logo" href="/">caderno<span style="color:var(--accent)">.</span></a>
-    <span class="sidebar-label">Organizar</span>
-    <button data-screen="today" aria-current="${screen === 'today'}">Hoje</button>
-    <button data-screen="courses" aria-current="${screen === 'courses'}">Cadeiras</button>
-    <button data-screen="files" aria-current="${screen === 'files'}">Materiais</button>
-    <span class="sidebar-label">Estudar</span>
-    <button data-screen="explain" aria-current="${screen === 'explain'}">Explicações</button>
-    <button data-screen="cards" aria-current="${screen === 'cards'}">Flashcards</button>
-    <button data-screen="practice" aria-current="${screen === 'practice'}">Treino</button>
-    <button data-screen="revision" aria-current="${screen === 'revision'}">Revisão</button>
-    <button data-screen="exam" aria-current="${screen === 'exam'}">Simulado</button>
-    <button data-screen="focus" aria-current="${screen === 'focus'}">Foco</button>
-    ${state?.admin ? `<button data-screen="admin" aria-current="${screen === 'admin'}">Administração</button>` : ''}
-    <button data-screen="settings" aria-current="${screen === 'settings'}">Definições</button>
-    <div class="bottom"><button data-action="theme">◐ Tema</button><button data-action="logout">Sair</button></div></aside>
-    <main class="app-main">${content}<p class="muted" style="margin-top:55px;font-size:.85rem">Caderno é independente e não é afiliado ao Moodle.</p></main></div>`;
-}
-
+const pageHead = (title, lead = '', actions = '', kicker = '') => `<header class="page-head"><div>
+  ${kicker ? `<p class="page-kicker">${kicker}</p>` : ''}<h1>${title}</h1>${lead ? `<p class="page-lead">${lead}</p>` : ''}</div>
+  ${actions ? `<div class="page-actions">${actions}</div>` : ''}</header>`;
 const courseName = (id) => state.courses.find((course) => course.id === id)?.name || 'Cadeira';
+const fileById = (id) => state.files.find((file) => file.id === id);
 const isPdf = (file) => file.mime === 'application/pdf' || /\.pdf$/i.test(file.filename || '');
+const materialHref = (id, page) => `/material?id=${encodeURIComponent(id)}${page ? `#page=${page}` : ''}`;
 const materialStatus = (file) => file.text_status === 'ok'
-  ? `${file.page_count || 0} páginas de texto extraído${file.summary ? ' · resumo pronto' : ' · resumo por criar'}`
+  ? `${file.page_count || 0} páginas de texto${file.summary ? ' · resumo pronto' : ' · sem resumo'}`
   : file.text_status === 'vazio' ? 'PDF sem texto selecionável; pode precisar de OCR'
     : file.text_status === 'privado' ? 'Conteúdo sensível; excluído da IA'
-      : file.text_status === 'sem-extracao' ? 'Guardado · análise por IA disponível para PDF'
-      : 'Não foi possível extrair o texto; tenta sincronizar novamente';
+      : file.text_status === 'sem-extracao' ? 'Guardado na pasta da cadeira'
+        : 'Não foi possível extrair o texto; tenta sincronizar novamente';
+
+// PDFs abrem no visualizador do Caderno; os outros formatos abrem no programa do Windows.
+function openButton(file, label = '', className = 'button') {
+  if (state.desktop && file && !isPdf(file)) return `<button class="${className}" data-open-file="${file.id}">${label || 'Abrir no Windows'}</button>`;
+  return `<a class="${className}" href="${materialHref(file?.id)}" target="_blank" rel="noopener">${label || (file && !isPdf(file) ? 'Descarregar' : 'Abrir PDF')}</a>`;
+}
+const revealButton = (file) => state.desktop ? `<button data-open-file="${file.id}" data-reveal="true">Mostrar na pasta</button>` : '';
+
+function auth() {
+  root.innerHTML = `<main class="auth"><p class="logo">caderno<span class="logo-dot">.</span></p>
+    <h1>${authMode === 'register' ? 'Criar conta' : 'Entrar'}</h1>
+    <p class="page-lead">Modo de desenvolvimento no browser. A aplicação Windows usa um perfil local, sem conta.</p>
+    <form id="auth-form" class="panel"><label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <label>Palavra-passe<input name="password" type="password" minlength="12" autocomplete="${authMode === 'register' ? 'new-password' : 'current-password'}" required></label>
+      <button class="primary" type="submit">${authMode === 'register' ? 'Criar conta' : 'Entrar'}</button></form>
+    <button class="link-button" data-action="swap-auth">${authMode === 'register' ? 'Já tenho conta' : 'Criar uma conta'}</button></main>`;
+}
+
+/** @type {[string, [string, string][]][]} */
+const navigation = [
+  ['Organizar', [['today', 'Hoje'], ['courses', 'Cadeiras'], ['files', 'Materiais']]],
+  ['Estudar', [['explain', 'Explicações'], ['cards', 'Flashcards'], ['practice', 'Treino'], ['revision', 'Revisão'], ['exam', 'Simulado'], ['focus', 'Foco']]],
+];
+const navButton = (id, label) => `<button data-screen="${id}" ${screen === id || (id === 'files' && screen === 'detail') ? 'aria-current="page"' : ''}>${label}</button>`;
+
+function shell(content) {
+  root.innerHTML = `<div class="app-shell"><aside class="sidebar">
+    <button class="logo" data-screen="today" aria-label="Caderno, ir para Hoje">caderno<span class="logo-dot">.</span></button>
+    <nav aria-label="Secções">${navigation.map(([group, items]) => `<p class="sidebar-label">${group}</p>${items.map(([id, label]) => navButton(id, label)).join('')}`).join('')}</nav>
+    <div class="sidebar-bottom">${navButton('settings', 'Definições')}<button data-action="guide">Guia de início</button>
+      <button data-action="theme">${currentTheme() === 'dark' ? 'Tema claro' : 'Tema escuro'}</button>${state.desktop ? '' : '<button data-action="logout">Sair</button>'}</div></aside>
+    <main class="app-main" tabindex="-1">${content}</main></div>`;
+}
+
+const syncNotice = (text) => state.sync?.status === 'running' ? `<p class="notice" role="status">${text}</p>` : '';
+const dayLabel = (seconds) => {
+  const date = new Date(seconds * 1000);
+  return `<time datetime="${date.toISOString().slice(0, 10)}"><b>${date.getDate()}</b>${date.toLocaleDateString('pt-PT', { month: 'short' }).replace('.', '')}</time>`;
+};
 
 function today() {
   const selected = state.courses.filter((course) => course.selected);
   const recent = state.files.filter((file) => selected.some((course) => course.id === file.course_id) && file.changed_at > (state.changesSince || Date.now() / 1000 - 7 * 86400)).slice(0, 5);
   const upcoming = state.deadlines.filter((deadline) => selected.some((course) => course.id === deadline.course_id)).slice(0, 5);
   const plan = state.plan;
-  shell(`<div class="topline"><div><span class="eyebrow">${new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</span><h1>Hoje</h1>
-    <p class="muted">Um plano simples para avançares, ao teu ritmo.</p></div><button data-action="sync" ${!state.connection ? 'disabled' : ''}>Sincronizar</button></div>
-    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar materiais do Moodle e a extrair texto dos PDFs. Os materiais aparecem automaticamente quando estiverem prontos.</div>' : ''}
-    ${state.connection?.last_error ? `<div class="notice error" role="alert">${esc(state.connection.last_error)}</div>` : ''}
-    ${state.connection && selected.length && !state.files.length && state.sync?.status !== 'running' ? '<div class="notice"><strong>As cadeiras já estão ligadas, mas ainda não há PDFs importados.</strong><p>Inicia a sincronização para trazer os materiais do Moodle.</p><button class="primary" data-action="sync">Importar PDFs</button></div>' : ''}
-    ${!selected.length ? `<div class="notice"><h2>Começa por uma cadeira</h2><p>Liga o Moodle ou cria uma cadeira para enviares PDFs.</p><button class="primary" data-screen="courses">Escolher cadeira</button></div>` : ''}
-    <div class="two today-grid" style="margin-top:24px"><section class="card"><div class="topline" style="margin-bottom:16px"><h2>O que mudou</h2>${recent.length ? '<button data-action="seen">Marcar como visto</button>' : ''}</div>${recent.length ? recent.map((file) => `<div class="item">
-      <small>${esc(courseName(file.course_id))} · ${fmt(file.changed_at)}</small><div><a href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${esc(file.filename)}</a></div>
-      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'vazio' ? 'PDF sem texto selecionável.' : file.text_status === 'sem-extracao' ? 'Documento guardado para consulta.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : '<div class="empty">Ainda não há alterações recentes.</div>'}</section>
-      <section class="stack"><div class="card"><h2>Próximos prazos</h2>${upcoming.length ? upcoming.map((d) => `<div class="item"><small>${esc(courseName(d.course_id))} · ${fmt(d.due_at)}</small><div>${esc(d.title)}</div></div>`).join('') : '<div class="empty">Ainda não há prazos registados.</div>'}</div>
-      <div class="card"><h2>Plano de hoje</h2><p class="muted">${plan.studiedToday} min feitos · ${plan.minutes} min disponíveis hoje · ${plan.completed}/${plan.totalMaterials} materiais em dia</p>
-      ${plan.blocks.length ? plan.blocks.map((block) => `<div class="item"><small>${esc(block.course)} · ${block.minutes} min · ${block.state === 'a-rever' ? 'revisão' : 'estudo'}</small>
-        <div><button data-file="${block.id}" style="border:0;padding:0;text-align:left;font-weight:700">${esc(block.title)}</button></div>
-        <p class="muted">${esc(block.summary || (block.questions.length ? `Experimenta: ${block.questions[0].pergunta}` : 'Lê e toma nota dos pontos principais.'))}</p>
-        <div class="row"><a class="button" href="/material?id=${encodeURIComponent(block.id)}" target="_blank" rel="noopener">Abrir material</a>
-        <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="bem">Percebi</button>
-        <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="assim">Mais ou menos</button>
-        <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="mal">Preciso de rever</button></div></div>`).join('') : `<div class="empty">${plan.minutes === 0 ? 'Hoje marcaste um dia sem estudo. O plano retoma quando houver tempo.' : plan.totalMaterials ? 'Está tudo em dia. Aproveita para descansar ou rever uma carta.' : 'Adiciona materiais para veres o plano.'}</div>`}
-      <p><small>O plano ajusta-se ao que fizeste. Dias sem estudo não criam tarefas em atraso.</small></p><button data-screen="settings">Ajustar tempo</button></div></section></div>
-    <section class="card" style="margin-top:18px"><h2>O teu progresso</h2><p>${state.progress.daysThisWeek} dias com estudo nesta semana · ${state.progress.quizCorrect}/${state.progress.quizTotal} respostas de exercícios conseguidas</p>
-      ${state.progress.topics.length ? `<div class="row">${state.progress.topics.slice(0, 8).map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : '<p class="muted">Os conceitos estudados aparecem aqui à medida que avanças.</p>'}</section>
-    <section class="card" style="margin-top:18px"><h2>Métodos de estudo</h2><div class="method-shortcuts">
-      <button data-screen="explain"><strong>Explicações</strong><small>Entender um PDF com fontes</small></button>
-      <button data-screen="cards"><strong>Flashcards</strong><small>Rever no momento certo</small></button>
-      <button data-screen="practice"><strong>Treino</strong><small>Responder de memória</small></button>
-      <button data-screen="revision"><strong>Revisão</strong><small>Resumos por cadeira</small></button>
-      <button data-screen="exam"><strong>Simulado</strong><small>Testar sem consultar</small></button>
-      <button data-screen="focus"><strong>Foco</strong><small>Estudar por blocos de tempo</small></button></div></section>
-    ${plan.forecast?.some((day) => day.allocations.length) ? `<section class="card" style="margin-top:18px"><h2>Os próximos dias</h2><p class="muted">Distribuição indicativa até aos exames. Ajusta-se quando estudares ou mudares a disponibilidade.</p>
-      <div class="grid">${plan.forecast.map((day) => `<div class="item"><strong>${new Date(`${day.date}T12:00:00`).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric' })}</strong><br>
-      <small>${day.minutes}/${day.capacity} min planeados</small><div>${day.allocations.map((part) => `<small>${esc(part.course)}: ${part.minutes} min<br></small>`).join('')}</div></div>`).join('')}</div></section>` : ''}
-    ${state.sync ? `<p class="muted" style="margin-top:20px">Última sincronização: ${fmt(state.sync.started_at)} · ${esc(state.sync.status === 'ok' ? `${state.sync.new_count} ficheiros novos ou alterados` : state.sync.status)}</p>` : ''}`);
+  const date = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+  shell(`${pageHead('Hoje', `${plan.studiedToday} de ${plan.minutes} min feitos · ${plan.completed} de ${plan.totalMaterials} materiais em dia`,
+    state.connection ? '<button data-action="sync">Sincronizar Moodle</button>' : '', date)}
+    ${syncNotice('A importar materiais do Moodle e a extrair o texto dos PDFs. Os ficheiros aparecem quando estiverem prontos.')}
+    ${state.connection?.last_error ? `<p class="notice error" role="alert">${esc(state.connection.last_error)}</p>` : ''}
+    ${state.connection && selected.length && !state.files.length && state.sync?.status !== 'running' ? '<div class="notice"><p><strong>As cadeiras estão ligadas, mas ainda não há ficheiros.</strong> Importa os materiais do Moodle para criar o plano.</p><button class="primary" data-action="sync">Importar do Moodle</button></div>' : ''}
+    ${!selected.length ? '<div class="notice"><p><strong>Ainda não tens cadeiras.</strong> Liga o Moodle ou cria uma cadeira para enviares ficheiros.</p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' : ''}
+    <div class="today-grid">
+      <section class="panel" aria-labelledby="plan-title"><div class="panel-head"><h2 id="plan-title">Plano de hoje</h2><button class="link-button" data-screen="settings">Ajustar tempo</button></div>
+        ${plan.blocks.length ? `<ol class="blocks">${plan.blocks.map((block) => `<li class="block">
+          <div class="block-main"><p class="meta">${esc(block.course)} · ${block.state === 'a-rever' ? 'revisão' : 'estudo'}</p>
+            <button class="title-button" data-file="${block.id}">${esc(block.title)}</button>
+            <p class="muted">${esc(block.summary || (block.questions.length ? `Experimenta: ${block.questions[0].pergunta}` : 'Lê e toma nota dos pontos principais.'))}</p></div>
+          <p class="block-minutes"><strong>${block.minutes}</strong> min</p>
+          <div class="block-actions">${openButton(fileById(block.id) || { id: block.id, mime: 'application/pdf' }, 'Abrir material')}
+            <span class="meta">Como correu?</span>
+            <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="bem">Percebi</button>
+            <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="assim">Mais ou menos</button>
+            <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="mal">Preciso de rever</button></div></li>`).join('')}</ol>`
+          : `<p class="empty">${plan.minutes === 0 ? 'Hoje marcaste um dia sem estudo. O plano retoma quando houver tempo.' : plan.totalMaterials ? 'Está tudo em dia. Aproveita para descansar ou rever umas cartas.' : 'Adiciona materiais às cadeiras para veres o plano.'}</p>`}
+        <p class="panel-foot">O plano ajusta-se ao que fizeste. Dias sem estudo não criam tarefas em atraso.</p></section>
+      <div class="today-side">
+        <section class="panel"><h2>Próximos prazos</h2>${upcoming.length ? `<ul class="dates">${upcoming.map((deadline) => `<li>${dayLabel(deadline.due_at)}<div><strong>${esc(deadline.title)}</strong><span class="meta">${esc(courseName(deadline.course_id))}</span></div></li>`).join('')}</ul>`
+          : '<p class="empty-inline">Sem prazos registados. Adiciona as datas de exame em Cadeiras.</p>'}</section>
+        <section class="panel"><div class="panel-head"><h2>O que mudou</h2>${recent.length ? '<button class="link-button" data-action="seen">Marcar como visto</button>' : ''}</div>
+          ${recent.length ? `<ul class="changes">${recent.map((file) => `<li><button class="title-button" data-file="${file.id}">${esc(file.filename)}</button><span class="meta">${esc(courseName(file.course_id))} · ${fmt(file.changed_at)}</span></li>`).join('')}</ul>`
+            : '<p class="empty-inline">Sem ficheiros novos desde a última visita.</p>'}</section>
+        <section class="panel"><h2>Esta semana</h2><p class="stats"><span><strong>${state.progress.daysThisWeek}</strong> dias com estudo</span><span><strong>${state.progress.quizCorrect}/${state.progress.quizTotal}</strong> respostas conseguidas</span></p>
+          ${state.progress.topics.length ? `<div class="tags">${state.progress.topics.slice(0, 8).map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</section>
+      </div></div>
+    ${plan.forecast?.some((day) => day.allocations.length) ? `<section class="panel week-panel"><div class="panel-head"><h2>Próximos dias</h2><p class="meta">Distribuição indicativa até aos exames.</p></div>
+      <ol class="week">${plan.forecast.map((day) => {
+        const date = new Date(`${day.date}T12:00:00`);
+        return `<li><p class="week-day">${date.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '')} <b>${date.getDate()}</b></p><p><strong>${day.minutes}</strong>/${day.capacity} min</p>${day.allocations.map((part) => `<p class="meta">${esc(part.course)} · ${part.minutes} min</p>`).join('')}</li>`;
+      }).join('')}</ol></section>` : ''}
+    ${state.sync ? `<p class="page-foot">Última sincronização a ${fmt(state.sync.started_at)}: ${esc(state.sync.status === 'ok' ? `${state.sync.new_count} ficheiros novos ou alterados` : state.sync.status)}.</p>` : ''}`);
 }
 
-function courses() {
+function moodlePanel() {
+  const canConnect = !state.desktop || state.moodleUrl;
+  return `<section class="panel"><h2>Moodle</h2>
+    <p class="muted">${state.connection ? `Ligado a ${esc(state.connection.site_name)}. Podes renovar a ligação se a chave expirar.` : 'Importa ficheiros e prazos das tuas cadeiras.'}</p>
+    ${state.desktop ? `<form id="desktop-moodle-form" class="field-row"><label>Endereço do Moodle<input type="url" name="url" value="${esc(state.moodleUrl)}" placeholder="https://moodle.exemplo.pt" required ${state.connection ? 'disabled' : ''}></label><button ${state.connection ? 'disabled' : ''}>Guardar endereço</button></form>
+      ${state.connection ? '<p class="hint">Para mudar o endereço, desliga primeiro o Moodle nas Definições.</p>' : '<p class="hint">A página inicial da plataforma da tua instituição, por exemplo https://moodle.escola.pt.</p>'}` : ''}
+    ${canConnect ? `<form id="connect-form"><label>Utilizador Moodle<input name="username" type="text" autocomplete="username" maxlength="254" required></label>
+      <label>Palavra-passe Moodle<input name="password" type="password" autocomplete="current-password" required></label><button class="primary">${state.connection ? 'Renovar ligação' : 'Ligar Moodle'}</button></form>
+      <p class="hint">A palavra-passe serve só para obter uma chave de acesso e não fica guardada. Contas com autenticação única (SSO) podem não conseguir ligar.</p>` : ''}</section>`;
+}
+
+const manualPanel = () => `<section class="panel"><h2>Cadeira sem Moodle</h2><p class="muted">Cria a cadeira e envia os ficheiros em Materiais.</p>
+  <form id="manual-course-form" class="field-row"><label>Nome da cadeira<input name="name" maxlength="100" required placeholder="Ex.: Matemática"></label><button>Criar cadeira</button></form></section>`;
+
+const courseSelection = () => state.courses.length ? `<form id="course-form"><ul class="choices">${state.courses.map((course) => `<li><input id="course-${course.id}" type="checkbox" name="course" value="${course.id}" ${course.selected ? 'checked' : ''}>
+  <label for="course-${course.id}">${esc(course.name)}<span class="meta">${course.source === 'manual' ? 'Manual' : 'Moodle'}</span></label></li>`).join('')}</ul>
+  <button class="primary">Guardar seleção</button><p class="hint">Guardar a seleção começa a importar os ficheiros das cadeiras do Moodle.</p></form>`
+  : '<p class="empty-inline">Ainda não tens cadeiras. Liga o Moodle ou cria uma cadeira.</p>';
+
+const examDates = () => {
   const selected = state.courses.filter((course) => course.selected);
-  shell(`<div class="topline"><div><span class="eyebrow">Organização</span><h1>Cadeiras</h1><p class="muted">Escolhe a cadeira que queres acompanhar.</p></div></div>
-    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar os materiais das cadeiras selecionadas. Esta página atualiza-se automaticamente.</div>' : ''}
-    ${state.connection ? `<div class="notice">Moodle ligado: ${esc(state.connection.site_name)}. Os teus ficheiros ficam privados.</div>` : '<div class="notice">Sem ligação ao Moodle. Usa o teu utilizador e palavra-passe abaixo ou envia PDFs manualmente.</div>'}
-    ${state.desktop ? `<section class="card" style="margin-top:24px"><h2>Endereço do Moodle</h2><p class="muted">Configura uma vez a raiz HTTPS da tua plataforma. É guardada neste computador.</p>
-      <form id="desktop-moodle-form" class="row"><label style="flex:1;min-width:240px">URL do Moodle<input type="url" name="url" value="${esc(state.moodleUrl)}" placeholder="https://moodle.exemplo.pt" required></label><button class="primary" ${state.connection ? 'disabled title="Desliga primeiro o Moodle"' : ''}>Guardar endereço</button></form></section>` : ''}
-    <div class="two" style="margin-top:24px"><section class="card"><h2>${state.connection ? 'Ligar ou renovar' : 'Ligar o Moodle'}</h2>
-      <p>Usa as credenciais da tua conta Moodle. Se entras através de SSO, esta forma de ligação pode não funcionar.</p>
-      <form id="connect-form"><label>Utilizador Moodle<input name="username" type="text" autocomplete="username" maxlength="254" required></label><label>Palavra-passe Moodle<input name="password" type="password" autocomplete="current-password" required></label><button class="primary">Ligar Moodle</button></form>
-      <p><small>A palavra-passe é usada para obter uma chave de acesso e não fica guardada.</small></p></section>
-      <section class="card"><h2>Sem Moodle</h2><p>Cria uma cadeira e começa com os teus PDFs.</p>
-      <form id="manual-course-form"><label>Nome da cadeira<input name="name" maxlength="100" required placeholder="Ex.: Matemática"></label><button>Criar cadeira</button></form></section></div>
-    <section class="card" style="margin-top:18px"><h2>As tuas cadeiras</h2>${state.courses.length ? `<form id="course-form">
-      ${state.courses.map((course) => `<div class="course-choice"><input id="course-${course.id}" type="checkbox" name="course" value="${course.id}" ${course.selected ? 'checked' : ''}><label for="course-${course.id}">${esc(course.name)} <small>· ${course.source === 'manual' ? 'manual' : 'Moodle'}</small></label></div>`).join('')}
-      <p><small>${state.hostedBilling && state.user.plan === 'free' ? 'Plano Grátis: uma cadeira de cada vez. ' : ''}${selected.length ? `Em acompanhamento: ${selected.map((course) => esc(course.name)).join(', ')}.` : ''} Guardar a seleção inicia a importação dos materiais.</small></p><button class="primary">Guardar seleção e importar</button></form>
-      <div style="margin-top:28px"><h3>Datas de exame</h3><p class="muted">Ajuda o plano a distribuir o estudo até à prova.</p>
-      ${selected.map((course) => `<form class="exam-form row" data-course="${course.id}" style="margin-bottom:12px"><label style="margin:0;flex:1;min-width:200px">${esc(course.name)}<input type="date" name="date" value="${course.exam_at ? new Date(course.exam_at * 1000).toISOString().slice(0, 10) : ''}"></label><button>Guardar data</button></form>`).join('')}</div>` : '<div class="empty">Ainda não tens cadeiras.</div>'}</section>`);
+  return selected.length ? `<div class="exam-dates">${selected.map((course) => `<form class="exam-form field-row" data-course="${course.id}"><label>${esc(course.name)}<input type="date" name="date" value="${course.exam_at ? new Date(course.exam_at * 1000).toISOString().slice(0, 10) : ''}"></label><button>Guardar data</button></form>`).join('')}</div>`
+    : '<p class="empty-inline">Escolhe primeiro as cadeiras que queres acompanhar.</p>';
+};
+
+function courses() {
+  shell(`${pageHead('Cadeiras', 'Escolhe as cadeiras que queres acompanhar e indica as datas de exame.')}
+    ${syncNotice('A importar os materiais das cadeiras selecionadas. Esta página atualiza-se sozinha.')}
+    <div class="split"><div class="stack"><section class="panel"><h2>As tuas cadeiras</h2>${courseSelection()}</section>
+      <section class="panel"><h2>Datas de exame</h2><p class="muted">O plano aproxima as revisões destas datas.</p>${examDates()}</section></div>
+      <div class="stack">${moodlePanel()}${manualPanel()}</div></div>`);
 }
 
 function files() {
@@ -209,25 +202,33 @@ function files() {
   const course = courses.find((item) => item.id === selectedCourse) || courses[0];
   selectedCourse = course?.id || null;
   const files = state.files.filter((file) => file.course_id === selectedCourse);
-  shell(`<div class="topline"><div><span class="eyebrow">Biblioteca privada</span><h1>Materiais</h1><p class="muted">Tudo o que tens disponível nesta cadeira.</p></div></div>
-    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar materiais e a extrair texto dos PDFs. Os ficheiros aparecem aqui quando terminarem.</div>' : ''}
-    ${course ? `<div class="row"><label style="margin:0;min-width:220px">Cadeira<select id="file-course">${courses.map((c) => `<option value="${c.id}" ${c.id === selectedCourse ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label></div>
-    <div class="two" style="margin-top:22px"><div class="card"><h2>${esc(course.name)}</h2>
-      ${files.length ? `<div class="row material-filters"><label>Procurar material<input id="file-search" type="search" placeholder="Nome ou resumo" value="${esc(fileSearch)}"></label>
-        <label class="checkbox-label"><input id="favorites-only" type="checkbox" ${favoritesOnly ? 'checked' : ''}> Só favoritos</label></div><div id="materials-no-results" class="empty" hidden>Nenhum material corresponde à pesquisa.</div>` : ''}
-      ${files.length ? files.map((file) => `<div class="item material-item" data-favorite="${file.favorite ? 'true' : 'false'}"><div class="material-title-row"><button data-file="${file.id}" style="border:0;padding:0;text-align:left;font-weight:700">${esc(file.filename)}</button><a href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener" aria-label="${isPdf(file) ? 'Abrir PDF' : 'Descarregar documento'} ${esc(file.filename)}">↗</a>
-      <button class="favorite-button" data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-label="${file.favorite ? 'Retirar' : 'Adicionar'} ${esc(file.filename)} ${file.favorite ? 'dos' : 'aos'} favoritos" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★' : '☆'}</button></div>
-      <div><small>${Math.round(file.size / 1024)} kB · ${file.source === 'upload' ? 'Enviado por ti' : 'Moodle'} · ${esc(materialStatus(file))}</small></div>
-      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'privado' ? 'Conteúdo sensível: excluído da análise.' : file.text_status === 'sem-extracao' ? 'Documento guardado. A análise por IA está disponível para PDFs.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : `<div class="empty">${state.sync?.status === 'running' ? 'A importar materiais desta cadeira…' : 'Ainda não há materiais nesta cadeira.'}${course.source === 'moodle' && state.sync?.status !== 'running' ? '<div style="margin-top:14px"><button class="primary" data-action="sync">Importar do Moodle</button></div>' : ''}</div>`}</div>
-    <div class="stack"><div class="card"><h2>Enviar material</h2><p>Para apontamentos teus ou quando o Moodle não está disponível.</p><form id="upload-form"><label class="file-input"><span>Escolher ficheiro</span><input name="file" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.doc,.ppt,.xls,.txt,.md,.csv,.rtf,.epub,.zip" required><small data-selected-file>Nenhum ficheiro escolhido</small></label><button class="primary">Enviar</button></form><p><small>PDF, Office, OpenDocument, texto, EPUB ou ZIP · até 20 MB. Só os PDFs são analisados por IA.</small></p></div>
-    <div class="card"><h2>Perguntar à cadeira</h2><p>Respostas só a partir dos PDFs, com indicação do ficheiro e página.</p>
+  const picker = course ? `<label class="inline-select">Cadeira<select id="file-course">${courses.map((c) => `<option value="${c.id}" ${c.id === selectedCourse ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>` : '';
+  shell(`${pageHead('Materiais', course ? 'Os ficheiros desta cadeira, com o estado do texto e do resumo.' : '', picker)}
+    ${syncNotice('A importar materiais e a extrair o texto dos PDFs. Os ficheiros aparecem aqui quando terminarem.')}
+    ${!course ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong> Os materiais ficam organizados por cadeira.</p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' :
+    `<div class="split split-wide"><section class="panel"><h2>${esc(course.name)}</h2>
+      ${files.length ? `<div class="filters"><label>Procurar<input id="file-search" type="search" placeholder="Nome ou resumo" value="${esc(fileSearch)}"></label>
+        <label class="checkbox-label"><input id="favorites-only" type="checkbox" ${favoritesOnly ? 'checked' : ''}>Só favoritos</label></div>
+        <p id="materials-no-results" class="empty-inline" hidden>Nenhum material corresponde à pesquisa.</p>
+        <ul class="materials">${files.map((file) => `<li class="material-item" data-favorite="${file.favorite ? 'true' : 'false'}">
+          <div class="material-title"><button class="title-button" data-file="${file.id}">${esc(file.filename)}</button>
+            <button class="favorite-button" data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-label="${file.favorite ? 'Retirar' : 'Adicionar'} ${esc(file.filename)} ${file.favorite ? 'dos' : 'aos'} favoritos" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★' : '☆'}</button></div>
+          <p class="meta">${Math.max(1, Math.round(file.size / 1024))} kB · ${file.source === 'upload' ? 'Enviado por ti' : 'Moodle'} · ${esc(materialStatus(file))}</p>
+          ${file.summary ? `<p class="muted">${esc(file.summary)}</p>` : ''}
+          <div class="row">${openButton(file, '', 'button small')}</div></li>`).join('')}</ul>`
+        : `<p class="empty">${state.sync?.status === 'running' ? 'A importar os materiais desta cadeira…' : 'Ainda não há materiais nesta cadeira.'}</p>${course.source === 'moodle' && state.sync?.status !== 'running' ? '<button class="primary" data-action="sync">Importar do Moodle</button>' : ''}`}</section>
+    <div class="stack"><section class="panel"><h2>Enviar material</h2><p class="muted">Apontamentos teus ou ficheiros que não estão no Moodle.</p>
+      <form id="upload-form"><label class="file-input"><span>Escolher ficheiro</span><input name="file" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.doc,.ppt,.xls,.txt,.md,.csv,.rtf,.epub,.zip" required><small data-selected-file>Nenhum ficheiro escolhido</small></label><button class="primary">Enviar</button></form>
+      <p class="hint">PDF, Office, OpenDocument, texto, EPUB ou ZIP, até 20 MB. Só os PDFs são analisados pela IA.</p></section>
+    <section class="panel"><h2>Perguntar à cadeira</h2><p class="muted">Respostas só a partir dos PDFs, com o ficheiro e a página.</p>
       ${state.ai?.consented && state.ai?.configured ? `<form id="ask-form"><label>Pergunta<input name="question" required minlength="4" maxlength="1000" placeholder="Ex.: Como se aplica este conceito?"></label><button class="primary">Perguntar</button></form>
-      ${answer ? `<div class="notice" style="margin-top:16px"><p>${esc(answer.answer)}</p>${answer.citations?.map((citation) => `<a href="/material?id=${encodeURIComponent(citation.fileId)}#page=${citation.page}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page}</a>`).join(' · ') || ''}</div>` : ''}` : '<p class="muted">Ativa a análise por IA nas Definições para fazer perguntas.</p>'}</div></div></div>` : '<div class="empty">Seleciona uma cadeira para ver os materiais. <button data-screen="courses">Escolher cadeira</button></div>'}`);
+      ${answer ? `<div class="answer"><p>${esc(answer.answer)}</p>${citationsHtml(answer)}</div>` : ''}` : '<p class="hint">Configura a IA nas Definições para fazer perguntas.</p>'}</section>
+    ${state.desktop ? `<section class="panel"><h2>No computador</h2><p class="muted">Os ficheiros estão em <span class="path">${esc(state.materialsDir)}</span>, numa pasta por cadeira.</p></section>` : ''}</div></div>`}`);
   updateMaterialFilter();
 }
 
 function updateMaterialFilter() {
-  const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT');
+  const normalize = (value) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('pt-PT');
   const query = normalize(fileSearch.trim());
   const items = [...document.querySelectorAll('.material-item')];
   let visible = 0;
@@ -241,23 +242,23 @@ function updateMaterialFilter() {
 }
 
 function detail() {
-  if (!fileDetail) return shell('<div class="loading">A abrir o material…</div>');
+  if (!fileDetail) return shell('<p class="loading">A abrir o material…</p>');
   const file = fileDetail;
-  shell(`<button data-screen="files">← Materiais</button><div class="topline" style="margin-top:30px"><div><span class="eyebrow">${esc(courseName(file.course_id))}</span><h1>${esc(file.filename)}</h1></div>
-    <div class="row"><button data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★ Guardado' : '☆ Guardar'}</button><a class="button primary" href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${isPdf(file) ? 'Abrir PDF' : 'Descarregar documento'}</a></div></div>
-    ${file.text_status === 'privado' ? '<div class="notice error">Este ficheiro parece conter dados de pessoas e está excluído da análise por IA.</div>' : ''}
-    ${file.text_status === 'vazio' ? '<div class="notice">Este PDF não tem texto selecionável. Pode ser uma digitalização que precisa de OCR.</div>' : ''}
-    ${file.text_status === 'falhou' ? '<div class="notice error">Falhou a extração de texto. Tenta sincronizar novamente ou abre o PDF para estudar diretamente.</div>' : ''}
-    ${file.text_status === 'sem-extracao' ? '<div class="notice">Este documento está guardado na tua pasta de materiais. Abre-o com uma aplicação compatível no teu computador. A extração de texto e a IA estão disponíveis para PDFs.</div>' : ''}
-    <div class="two"><section class="card"><h2>Resumo</h2><p>${esc(file.summary || (isPdf(file) ? 'Ainda não há resumo. O PDF continua disponível para estudo.' : 'Este formato não tem resumo automático.'))}</p>
-      ${file.text_status === 'ok' && state.ai?.consented && state.ai?.configured ? `<button data-simple="${file.id}" data-course="${file.course_id}">Explica isto de forma simples</button>` : ''}
-      ${!file.summary && file.text_status === 'ok' && state.ai?.consented && state.ai?.configured ? `<button data-analyze="${file.id}">Criar resumo com IA</button>` : ''}
-      ${file.topics?.length ? `<h3>Conceitos principais</h3><div class="row">${file.topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}
-      ${answer ? `<div class="notice" style="margin-top:18px"><p>${esc(answer.answer)}</p>${answer.citations?.map((citation) => `<a href="/material?id=${encodeURIComponent(citation.fileId)}#page=${citation.page}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page}</a>`).join(' · ') || ''}</div>` : ''}
-      ${file.text_preview && file.text_status === 'ok' ? `<details class="extracted-text"><summary>Ver texto extraído · ${file.page_count || 0} páginas</summary><pre>${esc(file.text_preview)}${file.text_preview.length >= 8000 ? '\n…' : ''}</pre></details>` : ''}</section>
-      <section class="card"><h2>Praticar</h2>${file.questions?.length ? file.questions.map((question, index) => `<details class="item"><summary>${esc(question.pergunta)}</summary><p><strong>Resposta:</strong> ${esc(question.resposta)}</p>
+  const canAsk = file.text_status === 'ok' && state.ai?.consented && state.ai?.configured;
+  shell(`<button class="link-button back" data-screen="files">← Materiais</button>
+    ${pageHead(esc(file.filename), esc(courseName(file.course_id)), `<button data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★ Nos favoritos' : '☆ Favorito'}</button>${revealButton(file)}${openButton(file, '', 'button primary')}`)}
+    ${file.text_status === 'privado' ? '<p class="notice error">Este ficheiro parece conter dados de pessoas e está excluído da análise por IA.</p>' : ''}
+    ${file.text_status === 'vazio' ? '<p class="notice">Este PDF não tem texto selecionável. Pode ser uma digitalização que precisa de OCR.</p>' : ''}
+    ${file.text_status === 'falhou' ? '<p class="notice error">Falhou a extração de texto. Tenta sincronizar novamente ou abre o PDF para estudar diretamente.</p>' : ''}
+    ${file.text_status === 'sem-extracao' ? `<p class="notice">Este documento está guardado na pasta da cadeira. ${state.desktop ? 'Usa Abrir no Windows para o abrir com o programa do computador.' : 'Descarrega-o para o abrir.'} A extração de texto e a IA só existem para PDFs.</p>` : ''}
+    <div class="split"><section class="panel"><h2>Resumo</h2><p>${esc(file.summary || (isPdf(file) ? 'Ainda não há resumo. O PDF continua disponível para estudar.' : 'Este formato não tem resumo automático.'))}</p>
+      ${canAsk ? `<div class="row"><button data-simple="${file.id}" data-course="${file.course_id}">Explicar de forma simples</button>${!file.summary ? `<button class="primary" data-analyze="${file.id}">Criar resumo com IA</button>` : ''}</div>` : ''}
+      ${file.topics?.length ? `<h3>Conceitos principais</h3><div class="tags">${file.topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}
+      ${answer ? `<div class="answer"><p>${esc(answer.answer)}</p>${citationsHtml(answer)}</div>` : ''}
+      ${file.text_preview && file.text_status === 'ok' ? `<details class="extracted-text"><summary>Ver texto extraído (${file.page_count || 0} páginas)</summary><pre>${esc(file.text_preview)}${file.text_preview.length >= 8000 ? '\n…' : ''}</pre></details>` : ''}</section>
+      <section class="panel"><h2>Praticar</h2>${file.questions?.length ? `<div class="questions">${file.questions.map((question, index) => `<details><summary>${esc(question.pergunta)}</summary><p><strong>Resposta:</strong> ${esc(question.resposta)}</p>
         ${question.explicacao ? `<p class="muted">${esc(question.explicacao)}</p>` : ''}
-        <div class="row"><button data-quiz="${file.id}" data-index="${index}" data-correct="false">Preciso de rever</button><button data-quiz="${file.id}" data-index="${index}" data-correct="true">Consegui</button></div></details>`).join('') : '<p class="muted">As perguntas aparecem quando a análise estiver disponível.</p>'}</section></div>`);
+        <div class="row"><button data-quiz="${file.id}" data-index="${index}" data-correct="false">Preciso de rever</button><button data-quiz="${file.id}" data-index="${index}" data-correct="true">Consegui</button></div></details>`).join('')}</div>` : '<p class="empty-inline">As perguntas aparecem depois de criares o resumo com IA.</p>'}</section></div>`);
 }
 
 async function loadCards() {
@@ -268,18 +269,21 @@ async function loadCards() {
   render();
 }
 
+const needsAnalysis = (text) => `<div class="empty"><p>${text}</p><p class="hint">As perguntas são criadas quando analisas os PDFs com IA, em Explicações ou na página de cada material.</p><button data-screen="explain">Ir para Explicações</button></div>`;
+
 function cards() {
   const courses = state.courses.filter((course) => course.selected);
   cardCourseIds = new Set([...cardCourseIds].filter((id) => courses.some((course) => course.id === id)));
   const deck = cardDeck?.cards || [];
   const card = deck[cardIndex];
-  shell(`<div class="topline"><div><span class="eyebrow">Revisão espaçada</span><h1>Flashcards</h1><p class="muted">${cardDeck?.totalDue || 0} para rever hoje. As cartas voltam quando for altura de as rever.</p></div></div>
-    <section class="card" style="margin-bottom:18px"><h2 style="font-size:1.15rem">Cadeiras deste baralho</h2><div class="row"><button type="button" data-action="cards-all" aria-pressed="${cardCourseIds.size === 0}">Todas</button>
-      ${courses.map((course) => `<label class="checkbox-label" style="margin:0"><input type="checkbox" data-card-course="${course.id}" ${cardCourseIds.has(course.id) ? 'checked' : ''}>${esc(course.name)}</label>`).join('')}</div><p class="muted" style="margin-top:12px">Escolhe uma ou várias cadeiras. A seleção não altera o teu progresso.</p></section>
-    <div class="card" style="max-width:680px">${card ? `<small>${esc(card.course)} · ${esc(card.filename)} · ${cardIndex + 1}/${deck.length}</small>
-      <h2 style="margin-top:22px">${esc(card.pergunta)}</h2>${cardRevealed ? `<div class="notice" style="margin:25px 0">${esc(card.resposta)}</div>
-      ${card.explicacao ? `<p class="muted">${esc(card.explicacao)}</p>` : ''}<p><a href="/material?id=${encodeURIComponent(card.fileId)}" target="_blank" rel="noopener">Consultar PDF ↗</a></p>
-      <div class="row"><button data-card="mal">Ainda não</button><button data-card="assim">Quase</button><button class="primary" data-card="bem">Percebi</button></div>` : '<button class="primary" data-action="reveal">Mostrar resposta</button>'}` : '<div class="empty">Não há cartas para hoje. Volta quando tiveres novos resumos.</div>'}</div>`);
+  shell(`${pageHead('Flashcards', `${cardDeck?.totalDue || 0} cartas para rever hoje. Cada carta volta quando for altura de a rever.`)}
+    <fieldset class="chips"><legend>Cadeiras deste baralho</legend><button type="button" data-action="cards-all" aria-pressed="${cardCourseIds.size === 0}">Todas</button>
+      ${courses.map((course) => `<label class="checkbox-label"><input type="checkbox" data-card-course="${course.id}" ${cardCourseIds.has(course.id) ? 'checked' : ''}>${esc(course.name)}</label>`).join('')}</fieldset>
+    ${card ? `<section class="panel study-card"><p class="meta">${esc(card.course)} · ${esc(card.filename)} · ${cardIndex + 1} de ${deck.length}</p>
+      <h2 class="study-question">${esc(card.pergunta)}</h2>${cardRevealed ? `<div class="answer"><p>${esc(card.resposta)}</p>${card.explicacao ? `<p class="muted">${esc(card.explicacao)}</p>` : ''}</div>
+      <p><a href="${materialHref(card.fileId)}" target="_blank" rel="noopener">Consultar o PDF</a></p>
+      <div class="row"><button data-card="mal">Ainda não</button><button data-card="assim">Quase</button><button class="primary" data-card="bem">Percebi</button></div>` : '<button class="primary" data-action="reveal">Mostrar resposta</button>'}</section>`
+      : needsAnalysis(cardDeck?.totalDue === 0 && deck.length === 0 ? 'Não há cartas para rever hoje.' : 'Ainda não há cartas.')}`);
 }
 
 const explainPrompts = {
@@ -290,8 +294,8 @@ const explainPrompts = {
 };
 
 function citationsHtml(result) {
-  return result?.citations?.length ? `<div class="source-links"><strong>Fontes</strong>${result.citations.map((citation) =>
-    `<a href="/material?id=${encodeURIComponent(citation.fileId)}#page=${citation.page}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page} ↗</a>`).join('')}</div>` : '';
+  return result?.citations?.length ? `<div class="sources"><strong>Fontes</strong>${result.citations.map((citation) =>
+    `<a href="${materialHref(citation.fileId, citation.page)}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page}</a>`).join('')}</div>` : '';
 }
 
 function explanations() {
@@ -301,34 +305,39 @@ function explanations() {
   const files = state.files.filter((file) => file.course_id === explanationCourse && file.text_status === 'ok');
   const canExplain = Boolean(state.ai?.configured && state.ai?.consented);
   if (!files.some((file) => file.id === explanationFile)) explanationFile = files[0]?.id || null;
-  shell(`<div class="topline"><div><span class="eyebrow">Aprender com as fontes</span><h1>Explicações</h1><p class="muted">Escolhe um PDF, pede uma explicação e abre a página citada para conferir.</p></div></div>
-    ${state.analysis?.running ? `<div class="notice" role="status">A criar resumos e perguntas. ${state.analysis.pending} PDF(s) ainda sem análise; esta página atualiza-se automaticamente.</div>` : ''}
-    ${state.analysis?.pending && state.ai?.consented && state.ai?.configured && !state.analysis.running ? `<div class="notice"><p>${state.analysis.pending} PDF(s) com texto aguardam análise para gerar resumos e flashcards.</p><button data-action="analyze-pending" ${state.ai.remaining.summaries === 0 ? 'disabled' : ''}>Analisar PDFs pendentes</button></div>` : ''}
-    ${!courses.length ? '<div class="empty">Seleciona primeiro uma cadeira. <button data-screen="courses">Escolher cadeira</button></div>' :
-    `<div class="study-layout"><section class="card"><div class="row study-selectors"><label>Cadeira<select id="explain-course">${courses.map((item) => `<option value="${item.id}" ${item.id === explanationCourse ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
+  shell(`${pageHead('Explicações', 'Escolhe um PDF, pede uma explicação e abre a página citada para confirmar.')}
+    ${state.analysis?.running ? `<p class="notice" role="status">A criar resumos e perguntas. Faltam ${state.analysis.pending} PDF(s); esta página atualiza-se sozinha.</p>` : ''}
+    ${state.analysis?.pending && canExplain && !state.analysis.running ? `<div class="notice"><p>${state.analysis.pending} PDF(s) com texto ainda sem resumo nem perguntas. Cada pedido usa a tua chave de IA.</p><button class="primary" data-action="analyze-pending">Analisar PDFs pendentes</button></div>` : ''}
+    ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' :
+    `<div class="study-layout"><section class="panel"><div class="field-row"><label>Cadeira<select id="explain-course">${courses.map((item) => `<option value="${item.id}" ${item.id === explanationCourse ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
       <label>PDF com texto<select id="explain-file">${files.map((file) => `<option value="${file.id}" ${file.id === explanationFile ? 'selected' : ''}>${esc(file.filename)}</option>`).join('')}</select></label></div>
-      ${state.ai?.configured && !state.ai?.consented ? '<div class="notice"><p>Para criar explicações, permite a análise por IA dos PDFs não sensíveis.</p><button data-action="ai-consent">Permitir análise por IA</button></div>' : ''}
-      ${!state.ai?.configured ? '<div class="notice">Configura a tua chave de IA nas Definições. Os PDFs e o texto extraído continuam disponíveis em Materiais.</div>' : ''}
-      ${!files.length ? `<div class="empty">${state.sync?.status === 'running' ? 'A importar e extrair os PDFs…' : 'Ainda não há PDFs com texto extraído nesta cadeira.'}<div style="margin-top:14px"><button data-screen="files">Ver materiais</button></div></div>` :
-      `<p class="muted">Experimenta uma destas abordagens:</p><div class="prompt-grid">${Object.entries({ simples: 'Explicação simples', exemplo: 'Exemplo prático', feynman: 'Método Feynman', exame: 'Preparar prova' }).map(([key, label]) => `<button data-explain-prompt="${key}" ${canExplain ? '' : 'disabled'}>${label}<span>↗</span></button>`).join('')}</div>
-      <form id="explain-form"><label>Ou escreve a tua dúvida<textarea name="question" rows="4" minlength="4" maxlength="1000" required placeholder="Ex.: Como se relacionam os diagramas de casos de uso e os requisitos?"></textarea></label><button class="primary" ${canExplain ? '' : 'disabled'}>Pedir explicação</button></form>`}</section>
-      <aside class="card answer-panel"><h2>Explicação</h2>${explanationAnswer ? `<p>${esc(explanationAnswer.answer)}</p>${citationsHtml(explanationAnswer)}` : '<p class="muted">A explicação aparece aqui, com referências às páginas do PDF.</p>'}
-      <p><small>${state.ai?.settings ? 'Sem limite interno de perguntas; o fornecedor pode cobrar cada pedido.' : `${state.ai?.remaining?.questions ?? 0} explicações ou perguntas disponíveis este mês.`}</small></p></aside></div>`}`);
+      ${state.ai?.configured && !state.ai?.consented ? '<div class="notice"><p>Para criar explicações, autoriza o envio do texto dos PDFs ao teu fornecedor de IA.</p><button data-action="ai-consent">Autorizar análise</button></div>' : ''}
+      ${!state.ai?.configured ? '<div class="notice"><p>Configura a tua chave de IA nas Definições. Os PDFs e o texto extraído continuam disponíveis em Materiais.</p><button data-screen="settings">Abrir Definições</button></div>' : ''}
+      ${!files.length ? `<p class="empty">${state.sync?.status === 'running' ? 'A importar e a extrair os PDFs…' : 'Ainda não há PDFs com texto nesta cadeira.'}</p>` :
+      `<p class="meta">Experimenta uma abordagem:</p><div class="prompt-grid">${Object.entries({ simples: 'Explicação simples', exemplo: 'Exemplo prático', feynman: 'Método Feynman', exame: 'Preparar a prova' }).map(([key, label]) => `<button data-explain-prompt="${key}" ${canExplain ? '' : 'disabled'}>${label}</button>`).join('')}</div>
+      <form id="explain-form"><label>Ou escreve a tua dúvida<textarea name="question" rows="4" minlength="4" maxlength="1000" required placeholder="Ex.: Como se relacionam os casos de uso e os requisitos?"></textarea></label><button class="primary" ${canExplain ? '' : 'disabled'}>Pedir explicação</button></form>`}</section>
+      <aside class="panel answer-panel"><h2>Explicação</h2>${explanationAnswer ? `<p class="answer-text">${esc(explanationAnswer.answer)}</p>${citationsHtml(explanationAnswer)}` : '<p class="muted">A explicação aparece aqui, com ligações às páginas do PDF.</p>'}
+      <p class="hint">Cada pedido usa a tua chave; o fornecedor pode cobrar.</p></aside></div>`}`);
 }
+
+const coursePicker = (id, value, disabled = false) => {
+  const courses = state.courses.filter((course) => course.selected);
+  return courses.length ? `<label class="inline-select">Cadeira<select id="${id}" ${disabled ? 'disabled' : ''}>${courses.map((course) => `<option value="${course.id}" ${course.id === value ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : '';
+};
 
 function practice() {
   const courses = state.courses.filter((course) => course.selected);
   if (!courses.some((course) => course.id === practiceCourse)) practiceCourse = courses[0]?.id || null;
   const questions = practiceDeck?.questions || [];
   const item = questions[practiceIndex];
-  shell(`<div class="topline"><div><span class="eyebrow">Recuperação ativa</span><h1>Treino</h1><p class="muted">Tenta responder antes de veres a solução. Marca como correu para acompanhar o teu progresso.</p></div></div>
-    ${courses.length ? `<label class="practice-filter">Cadeira<select id="practice-course">${courses.map((course) => `<option value="${course.id}" ${course.id === practiceCourse ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : ''}
-    ${item ? `<div class="study-layout"><section class="card"><div class="row" style="justify-content:space-between"><small>${esc(item.course)} · ${esc(item.filename)}</small><span class="tag">${practiceIndex + 1} / ${questions.length}</span></div>
+  shell(`${pageHead('Treino', 'Responde de memória antes de veres a solução e marca como correu.', coursePicker('practice-course', practiceCourse))}
+    ${item ? `<div class="study-layout"><section class="panel"><div class="row between"><p class="meta">${esc(item.course)} · ${esc(item.filename)}</p><span class="tag">${practiceIndex + 1} de ${questions.length}</span></div>
       <h2 class="study-question">${esc(item.pergunta)}</h2>${!practiceRevealed ? `<label>A tua resposta<textarea id="practice-answer" rows="5" placeholder="Escreve o que recordas, sem consultar o PDF.">${esc(practiceDraft)}</textarea></label><button class="primary" data-action="practice-reveal">Comparar resposta</button>` :
-      `<div class="self-answer"><small>A tua resposta</small><p>${esc(practiceDraft || 'Não escreveste uma resposta.')}</p></div><div class="notice"><strong>Resposta de referência</strong><p>${esc(item.resposta)}</p>${item.explicacao ? `<p class="muted">${esc(item.explicacao)}</p>` : ''}</div>
-      <div class="row" style="margin-top:18px"><button data-practice-grade="false">Preciso de rever</button><button class="primary" data-practice-grade="true">Consegui explicar</button></div>`}
-      <p style="margin-top:20px"><a href="/material?id=${encodeURIComponent(item.fileId)}" target="_blank" rel="noopener">Conferir o PDF ↗</a></p></section>
-      <aside class="card method-note"><h3>Como estudar</h3><ol><li>Responde de memória.</li><li>Compara com a solução.</li><li>Volta ao PDF se faltou alguma parte.</li></ol><p><small>Estas perguntas são geradas a partir dos PDFs analisados.</small></p></aside></div>` : `<div class="empty">${practiceDeck ? practiceIndex ? 'Terminaste as perguntas desta sessão.' : 'Ainda não há perguntas nesta cadeira. Analisa os PDFs para as criar.' : 'A carregar perguntas…'}<div style="margin-top:16px"><button data-screen="files">Ver materiais</button></div></div>`}`);
+      `<div class="self-answer"><p class="meta">A tua resposta</p><p>${esc(practiceDraft || 'Não escreveste uma resposta.')}</p></div><div class="answer"><p><strong>Resposta de referência</strong></p><p>${esc(item.resposta)}</p>${item.explicacao ? `<p class="muted">${esc(item.explicacao)}</p>` : ''}</div>
+      <div class="row"><button data-practice-grade="false">Preciso de rever</button><button class="primary" data-practice-grade="true">Consegui explicar</button></div>`}
+      <p class="panel-foot"><a href="${materialHref(item.fileId)}" target="_blank" rel="noopener">Confirmar no PDF</a></p></section>
+      <aside class="panel method-note"><h2>Como estudar</h2><ol><li>Responde de memória.</li><li>Compara com a solução.</li><li>Volta ao PDF se faltou alguma parte.</li></ol></aside></div>`
+      : practiceDeck ? practiceIndex ? '<div class="empty"><p>Terminaste as perguntas desta sessão.</p><button data-screen="cards">Rever flashcards</button></div>' : needsAnalysis('Ainda não há perguntas nesta cadeira.') : '<p class="loading">A carregar perguntas…</p>'}`);
 }
 
 function revision() {
@@ -336,15 +345,14 @@ function revision() {
   if (!courses.some((course) => course.id === revisionCourse)) revisionCourse = courses[0]?.id || null;
   const files = state.files.filter((file) => file.course_id === revisionCourse);
   const ready = files.filter((file) => file.summary);
-  shell(`<div class="topline"><div><span class="eyebrow">Antes da prova</span><h1>Folha de revisão</h1><p class="muted">Os resumos e conceitos dos teus materiais, reunidos por cadeira. Abre sempre o PDF para conferir detalhes.</p></div></div>
-    ${courses.length ? `<label class="practice-filter">Cadeira<select id="revision-course">${courses.map((course) => `<option value="${course.id}" ${course.id === revisionCourse ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : '<div class="empty">Seleciona uma cadeira para começar.</div>'}
-    ${courses.length ? `<p class="muted">${ready.length} de ${files.length} materiais com resumo disponível.</p>
-    ${ready.length ? `<div class="stack">${ready.map((file) => {
+  shell(`${pageHead('Folha de revisão', courses.length ? `${ready.length} de ${files.length} materiais com resumo. Abre sempre o PDF para confirmar os detalhes.` : '', coursePicker('revision-course', revisionCourse))}
+    ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' :
+    ready.length ? `<div class="revision">${ready.map((file) => {
       let topics = [];
       try { topics = JSON.parse(file.topics_json || '{}').topicos || []; } catch {}
-      return `<section class="card revision-item"><div class="row" style="justify-content:space-between"><h2>${esc(file.filename)}</h2><a class="button" href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">Abrir PDF ↗</a></div>
-        <p>${esc(file.summary)}</p>${topics.length ? `<div class="row">${topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</section>`;
-    }).join('')}</div>` : '<div class="empty">Ainda não há resumos nesta cadeira. Analisa os PDFs em Materiais para criar a folha de revisão.</div>'}` : ''}`);
+      return `<section class="revision-item"><div class="row between"><h2>${esc(file.filename)}</h2>${openButton(file, 'Abrir PDF', 'button small')}</div>
+        <p>${esc(file.summary)}</p>${topics.length ? `<div class="tags">${topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</section>`;
+    }).join('')}</div>` : needsAnalysis('Ainda não há resumos nesta cadeira.')}`);
 }
 
 const examTime = () => {
@@ -366,11 +374,10 @@ function exam() {
   if (!courses.some((course) => course.id === examCourse)) examCourse = courses[0]?.id || null;
   const current = examQuestions[examIndex];
   const graded = Object.values(examGrades).filter(Boolean).length;
-  shell(`<div class="topline"><div><span class="eyebrow">Recuperação ativa</span><h1>Simulado</h1><p class="muted">Até 10 perguntas da cadeira. Escreve sem consultar, termina e compara as respostas. O tempo e as respostas desta sessão ficam apenas neste dispositivo.</p></div></div>
-    ${courses.length ? `<label class="practice-filter">Cadeira<select id="exam-course" ${examEndsAt ? 'disabled' : ''}>${courses.map((course) => `<option value="${course.id}" ${course.id === examCourse ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : '<div class="empty">Seleciona uma cadeira para começar.</div>'}
-    ${!courses.length ? '' : !examQuestions.length ? '<div class="empty">Ainda não há perguntas nesta cadeira. Analisa os PDFs primeiro.</div>' : !examEndsAt && !examCompleted ? `<section class="card"><h2>Pronto para começar?</h2><p>${examQuestions.length} perguntas · 20 minutos · sem respostas visíveis durante o simulado.</p><button class="primary" data-action="exam-start">Começar simulado</button></section>` :
-    examCompleted ? `<p class="muted">${graded} respostas marcadas como conseguidas. Compara cada resposta e regista o que precisas de rever.</p><div class="stack">${examQuestions.map((item, index) => `<section class="card"><small>${index + 1}/${examQuestions.length} · ${esc(item.filename)}</small><h2 class="exam-question">${esc(item.pergunta)}</h2><div class="self-answer"><small>A tua resposta</small><p>${esc(examAnswers[index] || 'Sem resposta.')}</p></div><div class="notice"><strong>Resposta de referência</strong><p>${esc(item.resposta)}</p>${item.explicacao ? `<p>${esc(item.explicacao)}</p>` : ''}</div><p><a href="/material?id=${encodeURIComponent(item.fileId)}" target="_blank" rel="noopener">Conferir PDF ↗</a></p>${Object.hasOwn(examGrades, index) ? `<span class="tag">${examGrades[index] ? 'Consegui explicar' : 'Preciso de rever'}</span>` : `<div class="row"><button data-exam-grade="false" data-exam-index="${index}">Preciso de rever</button><button class="primary" data-exam-grade="true" data-exam-index="${index}">Consegui explicar</button></div>`}</section>`).join('')}</div><button data-action="exam-reset" style="margin-top:18px">Novo simulado</button>` :
-    `<section class="card"><div class="row" style="justify-content:space-between"><small>${examIndex + 1}/${examQuestions.length} · ${esc(current.filename)}</small><strong id="exam-clock" aria-live="off">${examTime()}</strong></div><h2 class="study-question">${esc(current.pergunta)}</h2><label>A tua resposta<textarea id="exam-answer" rows="7" placeholder="Escreve o que te lembras, sem consultar o material.">${esc(examAnswers[examIndex] || '')}</textarea></label><div class="row"><button class="primary" data-action="exam-next">${examIndex + 1 === examQuestions.length ? 'Terminar e corrigir' : 'Próxima pergunta'}</button><button data-action="exam-finish">Terminar já</button></div></section>`}`);
+  shell(`${pageHead('Simulado', 'Até 10 perguntas da cadeira em 20 minutos. Escreve sem consultar e compara no fim.', coursePicker('exam-course', examCourse, Boolean(examEndsAt)))}
+    ${!courses.length ? '<div class="notice"><p><strong>Escolhe primeiro uma cadeira.</strong></p><button class="primary" data-screen="courses">Adicionar cadeiras</button></div>' : !examQuestions.length ? needsAnalysis('Ainda não há perguntas nesta cadeira.') : !examEndsAt && !examCompleted ? `<section class="panel study-card"><h2>Pronto para começar?</h2><p>${examQuestions.length} perguntas, 20 minutos e nenhuma resposta visível até terminares. As respostas ficam só nesta sessão.</p><button class="primary" data-action="exam-start">Começar simulado</button></section>` :
+    examCompleted ? `<p class="page-lead">${graded} respostas marcadas como conseguidas. Compara cada resposta e regista o que precisas de rever.</p><div class="stack">${examQuestions.map((item, index) => `<section class="panel"><p class="meta">${index + 1} de ${examQuestions.length} · ${esc(item.filename)}</p><h2 class="study-question">${esc(item.pergunta)}</h2><div class="self-answer"><p class="meta">A tua resposta</p><p>${esc(examAnswers[index] || 'Sem resposta.')}</p></div><div class="answer"><p><strong>Resposta de referência</strong></p><p>${esc(item.resposta)}</p>${item.explicacao ? `<p class="muted">${esc(item.explicacao)}</p>` : ''}</div><p><a href="${materialHref(item.fileId)}" target="_blank" rel="noopener">Confirmar no PDF</a></p>${Object.hasOwn(examGrades, index) ? `<span class="tag">${examGrades[index] ? 'Consegui explicar' : 'Preciso de rever'}</span>` : `<div class="row"><button data-exam-grade="false" data-exam-index="${index}">Preciso de rever</button><button class="primary" data-exam-grade="true" data-exam-index="${index}">Consegui explicar</button></div>`}</section>`).join('')}</div><button data-action="exam-reset">Novo simulado</button>` :
+    `<section class="panel study-card"><div class="row between"><p class="meta">${examIndex + 1} de ${examQuestions.length} · ${esc(current.filename)}</p><strong id="exam-clock" class="exam-clock" aria-live="off">${examTime()}</strong></div><h2 class="study-question">${esc(current.pergunta)}</h2><label>A tua resposta<textarea id="exam-answer" rows="7" placeholder="Escreve o que te lembras, sem consultar o material.">${esc(examAnswers[examIndex] || '')}</textarea></label><div class="row"><button class="primary" data-action="exam-next">${examIndex + 1 === examQuestions.length ? 'Terminar e corrigir' : 'Próxima pergunta'}</button><button data-action="exam-finish">Terminar já</button></div></section>`}`);
 }
 
 async function loadExamQuestions() {
@@ -399,78 +406,106 @@ function focus() {
   const files = state.files.filter((file) => state.courses.some((course) => course.id === file.course_id && course.selected));
   if (!files.some((file) => file.id === focusFileId)) focusFileId = files[0]?.id || null;
   const elapsedMinutes = Math.max(5, Math.round((focusDuration - focusRemaining) / 60));
-  shell(`<div class="topline"><div><span class="eyebrow">Estudo por blocos</span><h1>Foco</h1><p class="muted">Escolhe um material, estuda durante um bloco sem interrupções e regista o resultado.</p></div></div>
-    ${!files.length ? '<div class="empty">Importa ou envia um PDF para iniciar um bloco de foco. <button data-screen="files">Ver materiais</button></div>' :
-    `<div class="study-layout"><section class="card focus-card"><div class="row study-selectors"><label>Material<select id="focus-file">${files.map((file) => `<option value="${file.id}" ${file.id === focusFileId ? 'selected' : ''}>${esc(courseName(file.course_id))} · ${esc(file.filename)}</option>`).join('')}</select></label>
+  shell(`${pageHead('Foco', 'Escolhe um material, estuda durante um bloco sem interrupções e regista o resultado.')}
+    ${!files.length ? '<div class="notice"><p><strong>Ainda não há materiais.</strong> Importa ou envia um ficheiro para iniciar um bloco.</p><button class="primary" data-screen="files">Ver materiais</button></div>' :
+    `<div class="study-layout"><section class="panel focus-card"><div class="field-row"><label>Material<select id="focus-file">${files.map((file) => `<option value="${file.id}" ${file.id === focusFileId ? 'selected' : ''}>${esc(courseName(file.course_id))} · ${esc(file.filename)}</option>`).join('')}</select></label>
       <label>Duração<select id="focus-duration" ${focusEndsAt ? 'disabled' : ''}><option value="15" ${focusDuration === 900 ? 'selected' : ''}>15 minutos</option><option value="25" ${focusDuration === 1500 ? 'selected' : ''}>25 minutos</option><option value="45" ${focusDuration === 2700 ? 'selected' : ''}>45 minutos</option></select></label></div>
       <div id="focus-clock" class="focus-clock" aria-live="off">${clockText(focusRemaining)}</div><p class="muted">Lê, resume com as tuas palavras e anota uma dúvida concreta.</p>
-      <div class="row"><button class="primary" data-action="focus-start" ${focusEndsAt ? 'disabled' : ''}>${focusRemaining === focusDuration ? 'Começar' : 'Continuar'}</button><button data-action="focus-pause" ${!focusEndsAt ? 'disabled' : ''}>Pausar</button><button data-action="focus-reset">Recomeçar</button></div>
-      ${focusDuration - focusRemaining >= 5 * 60 ? `<div class="focus-log"><h3>Como correu o bloco?</h3><div class="row"><button data-focus-grade="mal" data-minutes="${elapsedMinutes}">Preciso de rever</button><button data-focus-grade="assim" data-minutes="${elapsedMinutes}">Mais ou menos</button><button class="primary" data-focus-grade="bem" data-minutes="${elapsedMinutes}">Percebi</button></div></div>` : ''}</section>
-      <aside class="card method-note"><h3>Bloco de foco</h3><p>Trabalha numa tarefa de cada vez. Depois do bloco, faz uma pausa curta e usa o Treino ou os Flashcards para testar o que ficou.</p><button data-screen="practice">Abrir Treino</button></aside></div>`}`);
+      <div class="row center"><button class="primary" data-action="focus-start" ${focusEndsAt ? 'disabled' : ''}>${focusRemaining === focusDuration ? 'Começar' : 'Continuar'}</button><button data-action="focus-pause" ${!focusEndsAt ? 'disabled' : ''}>Pausar</button><button data-action="focus-reset">Recomeçar</button></div>
+      ${focusDuration - focusRemaining >= 5 * 60 ? `<div class="focus-log"><h3>Como correu o bloco?</h3><div class="row center"><button data-focus-grade="mal" data-minutes="${elapsedMinutes}">Preciso de rever</button><button data-focus-grade="assim" data-minutes="${elapsedMinutes}">Mais ou menos</button><button class="primary" data-focus-grade="bem" data-minutes="${elapsedMinutes}">Percebi</button></div></div>` : ''}</section>
+      <aside class="panel method-note"><h2>Bloco de foco</h2><p class="muted">Trabalha numa tarefa de cada vez. Depois do bloco, faz uma pausa curta e usa o Treino ou os Flashcards para testar o que ficou.</p><button data-screen="practice">Abrir Treino</button></aside></div>`}`);
 }
 
-function settings() {
+function timeForm() {
   let perDay;
   try { perDay = JSON.parse(state.preference?.minutes_by_weekday_json || 'null'); } catch { perDay = null; }
   if (!Array.isArray(perDay) || perDay.length !== 7) perDay = Array(7).fill(state.preference?.minutes_per_day ?? 45);
   const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  shell(`<div class="topline"><div><span class="eyebrow">A tua conta</span><h1>Definições</h1><p class="muted">${esc(state.user.email)}</p></div></div>
-    <section class="card" style="margin-bottom:18px"><h2>Tempo para estudar</h2><p class="muted">Escolhe o tempo de cada dia. Se saltares um dia, o plano recalcula-se automaticamente.</p>
-      <form id="time-form"><label>Tempo habitual (minutos)<input type="number" name="minutes" min="0" max="480" value="${state.preference?.minutes_per_day ?? 45}" required></label>
-      <div class="grid">${days.map((day, index) => `<label>${day}<input type="number" name="day-${index}" min="0" max="480" value="${perDay[index]}" required></label>`).join('')}</div>
-      <button class="primary">Guardar tempo</button></form></section>
-    <section class="card" style="margin-bottom:18px"><h2>Análise por IA</h2><p>Resumos, perguntas e explicações usam o texto dos PDFs. PDFs marcados como sensíveis não são enviados. Podes retirar esta autorização a qualquer momento.</p>
-      <p class="muted">${state.ai?.settings ? 'Usas a tua própria chave. O fornecedor cobra os pedidos segundo o teu contrato; a app não impõe uma quota de IA.' : state.ai?.configured ? `Este mês ainda tens ${state.ai.remaining.summaries} resumos e ${state.ai.remaining.questions} perguntas.` : 'Configura a tua chave abaixo para ativar a IA.'}</p>
-      <button data-action="ai-consent">${state.ai?.consented ? 'Desativar análise' : 'Permitir análise por IA'}</button></section>
-    <section class="card" style="margin-bottom:18px"><h2>A tua chave de IA</h2><p>Escolhe o fornecedor e os modelos. A chave fica cifrada no servidor e nunca volta a aparecer nesta página. Guardar uma configuração nova invalida os resumos anteriores; podes voltar a gerá-los.</p>
-      <form id="ai-settings-form" autocomplete="off"><label>Fornecedor<select name="provider" required>
-        ${[['anthropic','Anthropic'],['openai','OpenAI'],['deepseek','DeepSeek'],['groq','Groq'],['compatible','Outro compatível com OpenAI']].map(([value,label]) => `<option value="${value}" ${state.ai?.settings?.provider === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-        <label>Chave de API<input name="apiKey" type="password" minlength="8" maxlength="2048" placeholder="${state.ai?.settings ? 'Deixa vazio para manter a chave atual' : 'Chave do fornecedor'}" ${state.ai?.settings ? '' : 'required'} autocomplete="new-password"></label>
-        <div class="grid"><label>Modelo para resumos<input name="summaryModel" value="${esc(state.ai?.settings?.summary_model || '')}" placeholder="ID do modelo" required maxlength="120"></label>
-        <label>Modelo para explicações<input name="explainModel" value="${esc(state.ai?.settings?.explain_model || '')}" placeholder="ID do modelo" required maxlength="120"></label></div>
-        <label>URL base do endpoint compatível<input name="baseUrl" type="url" value="${esc(state.ai?.settings?.base_url || '')}" placeholder="https://api.exemplo.com/v1"><small>${state.desktop ? 'Só é usada para “Outro compatível”. Introduz a URL HTTPS indicada pelo fornecedor.' : 'Só é usada para “Outro compatível”. O operador tem de autorizar esta URL em AI_ALLOWED_BASE_URLS.'}</small></label>
-        <div class="row"><button class="primary">Guardar configuração</button>${state.ai?.settings ? '<button type="button" data-action="ai-key-delete">Remover chave</button>' : ''}</div></form></section>
-    <section class="card" style="margin-bottom:18px"><h2>Email da conta e resumo diário</h2><p>Confirma o email e, se quiseres, recebe o plano e os próximos prazos à hora que escolheres.</p>
-      ${state.digestAvailable && !state.user.email_verified_at ? `<p class="muted">Confirma primeiro o teu email.</p><button data-action="request-email-code">Enviar código de confirmação</button>
-        <form id="verify-email-form" style="margin-top:16px"><label>Código de 6 dígitos<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label><button>Confirmar email</button></form>` : ''}
-      ${state.digestAvailable && state.user.email_verified_at ? `<form id="digest-form" class="row"><label style="min-width:180px">Enviar<select name="channel"><option value="off" ${state.preference?.digest_channel !== 'email' ? 'selected' : ''}>Não enviar</option><option value="email" ${state.preference?.digest_channel === 'email' ? 'selected' : ''}>Por email</option></select></label>
-      <label style="min-width:120px">Hora de Lisboa<select name="hour">${Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${Number(state.preference?.digest_hour) === hour ? 'selected' : ''}>${String(hour).padStart(2, '0')}:00</option>`).join('')}</select></label><button>Guardar</button></form>` : state.digestAvailable ? '' : '<p class="muted">O envio de email ainda não está configurado neste servidor.</p>'}</section>
-    ${state.hostedBilling ? `<section class="card" style="margin-bottom:18px"><h2>Plano</h2><p>${state.user.complimentary ? 'Estudante · acesso de cortesia, sem cobrança' : state.user.plan === 'student' ? 'Estudante · €2,99 por mês' : 'Grátis · uma cadeira'}</p>
-      ${state.user.complimentaryPending ? `<p class="notice">Tens uma oferta Estudante reservada. Confirma o email da conta para a ativar.${state.digestAvailable ? ' Usa o código de confirmação na secção acima.' : ' O envio do código ainda não está configurado neste servidor.'}</p>` : ''}
-      ${state.user.stripeSubscription ? '<button data-action="portal">Gerir assinatura no Stripe</button>' : state.user.complimentary ? '<p class="muted">Este acesso não é uma assinatura Stripe.</p>' : state.billingAvailable ? '<button class="primary" data-action="checkout">Aderir ao Estudante</button>' : '<p class="muted">O plano Estudante estará disponível depois de configurados os pagamentos.</p>'}</section>` : ''}
-    <div class="two"><section class="card"><h2>Dados e privacidade</h2><p>Os PDFs e os dados de estudo são privados da tua conta.</p>
-      <div class="row"><a class="button" href="/api/export" download>Exportar todos os dados</a>
-      ${state.connection ? '<button data-action="disconnect">Desligar Moodle</button>' : ''}</div>
-      <p><small>Desligar elimina a chave guardada aqui. Para a revogar no Moodle, usa a página de Chaves de segurança.</small></p></section>
-      <section class="card"><h2>Apagar conta</h2><p>Elimina a conta, os PDFs, os resumos e o histórico de estudo. Esta ação é definitiva.</p>
-      <form id="delete-form"><label>Confirma com a tua palavra-passe<input name="password" type="password" autocomplete="current-password" required></label><button class="danger">Apagar conta e dados</button></form></section></div>`);
+  return `<form id="time-form"><label class="narrow">Tempo habitual por dia (minutos)<input type="number" name="minutes" min="0" max="480" value="${state.preference?.minutes_per_day ?? 45}" required></label>
+    <fieldset class="weekdays"><legend>Minutos em cada dia</legend>${days.map((day, index) => `<label>${day}<input type="number" name="day-${index}" min="0" max="480" value="${perDay[index]}" required></label>`).join('')}</fieldset>
+    <button class="primary">Guardar tempo</button><p class="hint">Põe 0 nos dias em que não estudas. Se saltares um dia, o plano recalcula-se.</p></form>`;
 }
 
-function legal(kind) {
-  const privacy = kind === 'privacy';
-  root.innerHTML = `${header()}<main class="wrap legal"><span class="eyebrow">Caderno</span><h1>${privacy ? 'Privacidade' : 'Termos de utilização'}</h1>
-    ${privacy ? `<p>O Caderno trata o email da conta, a chave Moodle cifrada, os PDFs que escolhes, os resumos e o progresso de estudo para prestar o serviço. Os materiais são privados da tua conta.</p>
-      <h2>Ligação ao Moodle</h2><p>Recebemos o utilizador e a palavra-passe Moodle para obter uma chave de acesso. Não guardamos a palavra-passe; guardamos a chave cifrada para ler os cursos e ficheiros a que já tens acesso. Podes desligar a ligação; para revogar a chave, usa a página de Chaves de segurança no Moodle.</p>
-      <h2>Os teus direitos</h2><p>Nas Definições podes exportar os dados e apagar a conta com os ficheiros. A aplicação deve ser alojada na UE antes de aceitar estudantes. O responsável pelo tratamento e o contacto devem ser preenchidos antes da publicação.</p>
-      <h2>IA</h2><p>Só depois da tua autorização nas Definições enviamos texto extraível de PDFs não classificados como sensíveis ao fornecedor de IA escolhido. A tua chave fica cifrada no servidor, não aparece na exportação e é apagada quando a removes ou apagas a conta. O fornecedor pode cobrar os pedidos e tratar os dados segundo a sua política. Podes retirar a autorização quando quiseres.</p>
-      ${publicConfig.hostedBilling ? '<h2>Pagamentos</h2><p>Se aderires ao plano Estudante, o Stripe trata os dados de pagamento. Guardamos apenas identificadores, estado da assinatura e eventos necessários para gerir o plano. Alguns registos de faturação poderão ter de ser conservados pelo prestador de pagamentos conforme a lei aplicável. O acesso de cortesia não cria uma cobrança.</p>' : ''}` : `<p>O Caderno é uma ferramenta de estudo independente, sem afiliação ao Moodle. O acesso aos materiais continua sujeito às permissões da tua conta Moodle.</p>
-      <p>Usa apenas materiais a que tens direito de acesso. Os resumos ajudam a estudar, mas podem conter erros: confirma sempre a fonte.</p>
-      <p>${publicConfig.hostedBilling ? publicConfig.billingAvailable ? 'O plano Estudante custa €2,99 por mês e é gerido no portal Stripe. Os limites dos planos aparecem nas Definições.' : 'Os pagamentos ainda não estão disponíveis.' : 'Esta instalação de código aberto não cobra assinatura. A tua chave de IA pode ter custos junto do fornecedor.'} Os termos finais, o responsável pelo serviço e os contactos devem ser revistos antes da publicação.</p>`}
-    <p><a href="/">Voltar ao início</a></p></main>${footer()}`;
+const aiPanel = () => `<section class="panel"><h2>A tua chave de IA</h2>
+  <p class="muted">${state.ai?.settings ? `Configurado: ${esc(state.ai.settings.provider)}. A chave fica cifrada neste computador e não volta a aparecer.` : 'Escolhe o fornecedor, cola a chave e indica os modelos. Encontras os IDs dos modelos na página do fornecedor.'}</p>
+  <form id="ai-settings-form" autocomplete="off"><label>Fornecedor<select name="provider" required>
+    ${[['anthropic', 'Anthropic'], ['openai', 'OpenAI'], ['deepseek', 'DeepSeek'], ['groq', 'Groq'], ['compatible', 'Outro compatível com Chat Completions']].map(([value, label]) => `<option value="${value}" ${state.ai?.settings?.provider === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+    <label>Chave de API<input name="apiKey" type="password" minlength="8" maxlength="2048" placeholder="${state.ai?.settings ? 'Deixa vazio para manter a chave atual' : 'Chave do fornecedor'}" ${state.ai?.settings ? '' : 'required'} autocomplete="new-password"></label>
+    <div class="field-row"><label>Modelo para resumos<input name="summaryModel" value="${esc(state.ai?.settings?.summary_model || '')}" placeholder="ID do modelo" required maxlength="120"></label>
+    <label>Modelo para explicações<input name="explainModel" value="${esc(state.ai?.settings?.explain_model || '')}" placeholder="ID do modelo" required maxlength="120"></label></div>
+    <label>URL base (só para outro serviço compatível)<input name="baseUrl" type="url" value="${esc(state.ai?.settings?.base_url || '')}" placeholder="https://api.exemplo.com/v1"></label>
+    <div class="row"><button class="primary">Guardar chave</button>${state.ai?.settings ? '<button type="button" data-action="ai-key-delete">Remover chave</button>' : ''}</div></form>
+  <p class="hint">Mudar de fornecedor ou de modelos apaga os resumos anteriores, para não misturar resultados.</p></section>`;
+
+const consentPanel = () => `<section class="panel"><h2>Autorização de análise</h2>
+  <p class="muted">Resumos, perguntas e explicações enviam o texto dos PDFs ao fornecedor que escolheste. PDFs com dados de pessoas não são enviados. Nada é analisado sem pedires.</p>
+  <p class="status-line">${state.ai?.consented ? 'Autorizado.' : 'Ainda não autorizado.'}</p>
+  <button data-action="ai-consent" ${state.ai?.configured ? '' : 'disabled'}>${state.ai?.consented ? 'Retirar autorização' : 'Autorizar análise'}</button>
+  ${state.ai?.configured ? '' : '<p class="hint">Guarda primeiro uma chave de IA.</p>'}</section>`;
+
+function settings() {
+  shell(`${pageHead('Definições', state.desktop ? 'Perfil local deste computador.' : esc(state.user.email || ''))}
+    <div class="split"><div class="stack">
+      <section class="panel"><h2>Tempo para estudar</h2>${timeForm()}</section>
+      ${aiPanel()}${consentPanel()}</div>
+    <div class="stack">
+      <section class="panel"><h2>Moodle</h2>${state.connection ? `<p class="muted">Ligado a ${esc(state.connection.site_name)}. Desligar apaga a chave guardada aqui; os materiais ficam.</p><button data-action="disconnect">Desligar Moodle</button><p class="hint">Para revogar a chave no próprio Moodle, usa a página Chaves de segurança do teu perfil.</p>` : '<p class="muted">Sem ligação.</p><button data-screen="courses">Ligar em Cadeiras</button>'}</section>
+      <section class="panel"><h2>Os teus dados</h2>
+        ${state.desktop ? `<p class="muted">Tudo fica neste computador.</p><dl class="paths"><dt>Materiais</dt><dd class="path">${esc(state.materialsDir)}</dd><dt>Base de dados e chave local</dt><dd class="path">${esc(state.dataDir)}</dd></dl>
+          <p class="hint">Para uma cópia de segurança, fecha o Caderno e copia as duas pastas. A chave local é necessária para recuperar as ligações e a chave de IA.</p>` : ''}
+        <a class="button" href="/api/export" download>Exportar dados (JSON)</a></section>
+      <section class="panel"><h2>Guia de início</h2><p class="muted">Volta a ver como configurar o Caderno e como estudar com ele.</p><button data-action="guide">Abrir o guia</button></section>
+      <section class="panel danger-zone"><h2>Apagar tudo</h2><p class="muted">Elimina as cadeiras, os ficheiros guardados pelo Caderno, os resumos e o histórico de estudo. ${state.desktop ? 'A app recomeça com um perfil vazio.' : ''}</p>
+        <form id="delete-form"><label>Escreve APAGAR para confirmar<input name="confirm" autocomplete="off" required pattern="APAGAR"></label><button class="danger">Apagar todos os dados</button></form></section>
+      <p class="page-foot">${state.version ? `Caderno ${esc(state.version)}. As atualizações chegam sozinhas a partir das releases do GitHub. ` : ''}Caderno é independente e não é afiliado ao Moodle. Código aberto sob licença MIT.</p></div></div>`);
 }
 
-function admin() {
-  const rows = adminData?.costs || [];
-  shell(`<span class="eyebrow">Operação</span><h1>Custos de IA</h1><p class="muted">Estimativa com as tarifas configuradas no servidor; confirma os valores com a fatura do fornecedor.</p>
-    <div class="card">${rows.length ? rows.map((row) => `<div class="item"><strong>${esc(row.email)}</strong> · ${esc(row.month)}<br>
-      <small>${row.requests} pedidos · ${row.input_tokens} tokens entrada · ${row.output_tokens} saída · US$ ${Number(row.cost_usd).toFixed(4)}</small></div>`).join('') : '<div class="empty">Ainda não houve chamadas à IA.</div>'}</div>`);
+const guideSteps = ['Boas-vindas', 'Cadeiras', 'Tempo e exames', 'IA opcional', 'Como estudar'];
+
+function guideContent(step) {
+  if (step === 0) return `<h1>Bem-vindo ao Caderno</h1>
+    <p class="page-lead">O Caderno junta os materiais de cada cadeira e diz-te o que estudar a seguir. Este guia demora uns três minutos; podes saltar passos e voltar a ele nas Definições.</p>
+    <dl class="guide-facts"><div><dt>Fica neste computador</dt><dd>${state.desktop ? `Os ficheiros ficam em <span class="path">${esc(state.materialsDir)}</span>, numa pasta por cadeira. Não há conta nem servidor.` : 'Os ficheiros ficam na pasta de dados desta instalação.'}</dd></div>
+      <div><dt>Funciona sem internet</dt><dd>Os PDFs já importados abrem no visualizador do Caderno. Sincronizar o Moodle e usar a IA precisam de internet.</dd></div>
+      <div><dt>A IA é opcional</dt><dd>Cadeiras, plano, prazos e foco funcionam sem IA. Com a tua chave, os PDFs ganham resumos, flashcards e perguntas.</dd></div></dl>`;
+  if (step === 1) return `<h1>Junta as tuas cadeiras</h1>
+    <p class="page-lead">Liga o Moodle para importar ficheiros e prazos, ou cria cadeiras e envia os ficheiros à mão. Podes usar as duas formas.</p>
+    <div class="split">${moodlePanel()}${manualPanel()}</div>
+    <section class="panel"><h2>Escolhe o que acompanhar</h2>${courseSelection()}</section>
+    ${syncNotice('A importar os ficheiros. Podes continuar o guia enquanto isso acontece.')}`;
+  if (step === 2) return `<h1>Quanto tempo tens?</h1>
+    <p class="page-lead">O plano distribui o estudo pelo tempo de cada dia e aproxima as revisões das datas de exame.</p>
+    <div class="split"><section class="panel"><h2>Tempo para estudar</h2>${timeForm()}</section>
+    <section class="panel"><h2>Datas de exame</h2>${examDates()}</section></div>`;
+  if (step === 3) return `<h1>IA com a tua chave</h1>
+    <p class="page-lead">Opcional. Com uma chave da Anthropic, OpenAI, DeepSeek, Groq ou de outro serviço compatível, o Caderno cria resumos e perguntas a partir dos PDFs. Cada pedido pode ser cobrado pelo fornecedor na tua conta.</p>
+    <ol class="guide-steps"><li>Cria uma chave de API no site do fornecedor.</li><li>Guarda a chave e os IDs dos modelos aqui.</li><li>Autoriza a análise. Depois, pede o resumo de um PDF ou analisa os pendentes em Explicações.</li></ol>
+    <div class="split">${aiPanel()}${consentPanel()}</div>`;
+  return `<h1>Como estudar com o Caderno</h1>
+    <p class="page-lead">Um ciclo curto, todos os dias.</p>
+    <ol class="guide-loop">
+      <li><h2>Abre o Hoje</h2><p>Vês o plano do dia, os próximos prazos e os ficheiros que mudaram nas cadeiras.</p></li>
+      <li><h2>Estuda um bloco</h2><p>Abre o material, estuda e marca <strong>Percebi</strong>, <strong>Mais ou menos</strong> ou <strong>Preciso de rever</strong>. O plano ajusta os dias seguintes.</p></li>
+      <li><h2>Testa o que ficou</h2><p>Flashcards, Treino e Simulado usam as perguntas criadas pela IA. Em Explicações, pedes ajuda sobre um PDF e confirmas nas páginas citadas.</p></li>
+      <li><h2>Mantém tudo em dia</h2><p>Sincroniza o Moodle no Hoje, envia ficheiros em Materiais e usa o Foco para blocos sem interrupções.</p></li></ol>
+    <p class="hint">Faz cópias de segurança de vez em quando: as pastas estão indicadas em Definições, na secção Os teus dados.</p>`;
+}
+
+function onboarding() {
+  const last = guideSteps.length - 1;
+  guideStep = Math.min(Math.max(guideStep, 0), last);
+  root.innerHTML = `<div class="guide"><aside class="guide-index"><p class="logo">caderno<span class="logo-dot">.</span></p><p class="guide-label">Guia de início</p>
+    <ol>${guideSteps.map((label, index) => `<li ${index === guideStep ? 'aria-current="step"' : ''} class="${index < guideStep ? 'done' : ''}"><button data-guide-step="${index}"><span class="guide-n">${index + 1}</span>${label}</button></li>`).join('')}</ol>
+    <button class="link-button" data-action="guide-done">${state.onboarded ? 'Fechar o guia' : 'Saltar o guia'}</button></aside>
+    <main class="guide-main"><div class="guide-body">${guideContent(guideStep)}</div>
+    <nav class="guide-nav" aria-label="Passos do guia">${guideStep ? '<button data-action="guide-back">Voltar</button>' : '<span></span>'}
+      ${guideStep < last ? `<button class="primary" data-action="guide-next">${guideStep === 0 ? 'Começar' : 'Continuar'}</button>` : '<button class="primary" data-action="guide-done">Abrir o Hoje</button>'}</nav></main></div>`;
 }
 
 function render() {
-  document.documentElement.dataset.theme = localStorage.getItem('caderno-theme') || 'dark';
-  if (screen === 'privacy' || screen === 'terms') return legal(screen);
-  if (screen === 'landing') return landing();
+  document.documentElement.dataset.theme = currentTheme();
   if (!state) return auth();
+  if (screen === 'guide' || !state.onboarded) return onboarding();
   if (screen === 'courses') return courses();
   if (screen === 'files') return files();
   if (screen === 'detail') return detail();
@@ -480,7 +515,6 @@ function render() {
   if (screen === 'revision') return revision();
   if (screen === 'exam') return exam();
   if (screen === 'focus') return focus();
-  if (screen === 'admin') return admin();
   if (screen === 'settings') return settings();
   return today();
 }
@@ -488,13 +522,21 @@ function render() {
 async function action(target) {
   const name = target.dataset.action;
   if (name === 'theme') {
-    localStorage.setItem('caderno-theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); render();
-  } else if (name === 'open-app') {
-    history.pushState({}, '', '/app'); screen = 'today'; render();
+    const theme = currentTheme() === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('caderno-theme', theme); } catch {}
+    if (state) { await post('/api/theme', { theme }); state.preference.theme = theme; }
+    render();
   } else if (name === 'swap-auth') {
     authMode = authMode === 'register' ? 'login' : 'register'; render();
   } else if (name === 'logout') {
     await post('/api/logout', {}); state = null; screen = 'today'; render();
+  } else if (name === 'guide') {
+    screen = 'guide'; guideStep = 0; render();
+  } else if (name === 'guide-next' || name === 'guide-back') {
+    guideStep += name === 'guide-next' ? 1 : -1; render(); root.querySelector('.guide-main')?.scrollTo(0, 0);
+  } else if (name === 'guide-done') {
+    if (!state.onboarded) await post('/api/onboarding', { done: true });
+    screen = 'today'; await refresh();
   } else if (name === 'sync') {
     target.disabled = true; flash('A sincronizar com o Moodle…');
     try { const result = await post('/api/sync', {}); flash(result.status === 'running' ? 'Sincronização em curso.' : result.warning || `${result.newCount} ficheiros novos ou alterados.`); await refresh(); }
@@ -539,37 +581,34 @@ async function action(target) {
   } else if (name === 'ai-consent') {
     const enabled = !state.ai.consented;
     await post('/api/ai-consent', { enabled });
-    flash(enabled ? state.ai?.settings ? 'Análise autorizada. Escolhe os PDFs que queres analisar ou usa a fila de pendentes.' : 'Análise autorizada. Os PDFs com texto serão analisados dentro do limite mensal.' : 'Análise desativada.');
+    flash(enabled ? 'Análise autorizada. Pede o resumo de um PDF ou analisa os pendentes em Explicações.' : 'Autorização retirada.');
     await refresh();
   } else if (name === 'ai-key-delete') {
-    if (!confirm('Remover a chave de IA desta conta? Os resumos anteriores serão eliminados.')) return;
+    if (!confirm('Remover a chave de IA? Os resumos criados com ela serão apagados.')) return;
     await api('/api/ai-settings', { method: 'DELETE' });
     flash('Chave removida.'); await refresh();
   } else if (name === 'analyze-pending') {
     await post('/api/analyze-pending', {});
     flash('A analisar os PDFs pendentes.'); await refresh();
-  } else if (name === 'request-email-code') {
-    await post('/api/request-email-code', {}); flash('Código enviado para o email da conta.');
-  } else if (name === 'checkout' || name === 'portal') {
-    const result = await post(name === 'checkout' ? '/api/checkout' : '/api/portal', {});
-    location.assign(result.url);
   } else if (name === 'disconnect') {
-    if (!confirm('Desligar o Moodle desta conta? Os materiais já guardados permanecem.')) return;
+    if (!confirm('Desligar o Moodle? Os materiais já guardados ficam no computador.')) return;
     const result = await post('/api/disconnect', {});
-    flash('Ligação desligada. Revoga a chave na página de Chaves de segurança do Moodle.');
+    flash('Moodle desligado. Revoga a chave na página Chaves de segurança do Moodle.');
     window.open(result.revokeUrl, '_blank', 'noopener'); await refresh();
-  } else if (name === 'privacy' || name === 'terms') {
-    history.pushState({}, '', target.getAttribute('href')); screen = name; render();
   }
 }
 
 document.addEventListener('click', async (event) => {
-  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-simple],[data-favorite-file],[data-explain-prompt],[data-practice-grade],[data-focus-grade],[data-exam-grade]') : null;
+  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-simple],[data-favorite-file],[data-explain-prompt],[data-practice-grade],[data-focus-grade],[data-exam-grade],[data-open-file],[data-guide-step]') : null;
   if (!target) return;
   if (!(target instanceof HTMLElement)) return;
   event.preventDefault();
   try {
-    if (target.dataset.examGrade) {
+    if (target.dataset.guideStep) {
+      guideStep = Number(target.dataset.guideStep); render();
+    } else if (target.dataset.openFile) {
+      await post('/api/open-file', { fileId: target.dataset.openFile, reveal: target.dataset.reveal === 'true' });
+    } else if (target.dataset.examGrade) {
       const index = Number(target.dataset.examIndex);
       const item = examQuestions[index];
       if (!examCompleted || !item || Object.hasOwn(examGrades, index)) return;
@@ -579,7 +618,7 @@ document.addEventListener('click', async (event) => {
       render();
     } else if (target.dataset.explainPrompt) {
       if (!(target instanceof HTMLButtonElement)) return;
-      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Ativa primeiro a análise por IA.');
+      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Configura e autoriza primeiro a IA nas Definições.');
       if (!explanationFile) throw new Error('Escolhe um PDF com texto extraído.');
       target.disabled = true;
       try { explanationAnswer = await post('/api/ask', { courseId: explanationCourse, fileId: explanationFile,
@@ -624,7 +663,7 @@ document.addEventListener('click', async (event) => {
       await post('/api/card', { fileId: card.fileId, index: card.index, result: target.dataset.card });
       cardIndex++; cardRevealed = false; render();
     } else if (target.dataset.screen) {
-      screen = target.dataset.screen; history.replaceState({}, '', '/app');
+      screen = target.dataset.screen;
       if (screen === 'cards') await loadCards();
       if (screen === 'practice') {
         practiceCourse = state.courses.find((course) => course.selected)?.id || null;
@@ -635,8 +674,9 @@ document.addEventListener('click', async (event) => {
         examCourse = state.courses.find((course) => course.selected)?.id || null;
         await loadExamQuestions();
       }
-      if (screen === 'admin') adminData = await api('/api/admin');
       render();
+      root.querySelector('main')?.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
     } else await action(target);
   }
   catch (error) { flash(error.message); }
@@ -652,16 +692,16 @@ document.addEventListener('submit', async (event) => {
     const data = new FormData(form);
     if (form.id === 'auth-form') {
       await post(authMode === 'register' ? '/api/register' : '/api/login', { email: data.get('email'), password: data.get('password') });
-      screen = 'today'; history.replaceState({}, '', '/app'); await refresh();
+      screen = 'today'; await refresh();
     } else if (form.id === 'desktop-moodle-form') {
-      await post('/api/desktop/moodle-url', { url: data.get('url') }); flash('Endereço do Moodle guardado neste computador.'); await refresh();
+      await post('/api/desktop/moodle-url', { url: data.get('url') }); flash('Endereço do Moodle guardado.'); await refresh();
     } else if (form.id === 'connect-form') {
       const result = await post('/api/connect', { username: data.get('username'), password: data.get('password') });
-      form.reset(); flash(`${result.count} cadeiras encontradas. Escolhe a que queres seguir.`); await refresh();
+      form.reset(); flash(`${result.count} cadeiras encontradas. Escolhe as que queres acompanhar.`); await refresh();
     } else if (form.id === 'manual-course-form') {
       await post('/api/manual-course', { name: data.get('name') }); flash('Cadeira criada.'); await refresh();
     } else if (form.id === 'course-form') {
-      await post('/api/courses', { selected: data.getAll('course') }); flash('Seleção guardada. A importar os materiais das cadeiras Moodle.'); await refresh();
+      await post('/api/courses', { selected: data.getAll('course') }); flash('Seleção guardada.'); await refresh();
     } else if (form.classList.contains('exam-form')) {
       await post('/api/exam', { courseId: form.dataset.course, date: data.get('date') }); flash('Data de exame guardada.'); await refresh();
     } else if (form.id === 'time-form') {
@@ -671,29 +711,24 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'ai-settings-form') {
       await post('/api/ai-settings', { provider: data.get('provider'), apiKey: data.get('apiKey'),
         summaryModel: data.get('summaryModel'), explainModel: data.get('explainModel'), baseUrl: data.get('baseUrl') });
-      form.reset(); flash('Configuração de IA guardada.'); await refresh();
+      form.reset(); flash('Chave de IA guardada.'); await refresh();
     } else if (form.id === 'ask-form') {
       answer = await post('/api/ask', { courseId: selectedCourse, question: data.get('question') });
       render();
     } else if (form.id === 'explain-form') {
-      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Ativa primeiro a análise por IA.');
+      if (!state.ai?.configured || !state.ai?.consented) throw new Error('Configura e autoriza primeiro a IA nas Definições.');
       explanationAnswer = await post('/api/ask', { courseId: explanationCourse, fileId: explanationFile,
         question: data.get('question') });
       render();
-    } else if (form.id === 'digest-form') {
-      await post('/api/digest', { channel: data.get('channel'), hour: Number(data.get('hour')) });
-      flash('Preferência de email guardada.'); await refresh();
-    } else if (form.id === 'verify-email-form') {
-      await post('/api/verify-email', { code: data.get('code') });
-      flash('Email confirmado.'); await refresh();
     } else if (form.id === 'upload-form') {
       const file = data.get('file');
       if (!(file instanceof File) || file.size > 20 * 1024 * 1024) throw new Error('Escolhe um ficheiro até 20 MB.');
       await api(`/api/upload?course=${encodeURIComponent(selectedCourse)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-filename': encodeURIComponent(file.name) }, body: file });
       flash('Material guardado.'); await refresh();
     } else if (form.id === 'delete-form') {
-      if (!confirm('Apagar definitivamente a conta e todos os dados?')) return;
-      await post('/api/delete-account', { password: data.get('password') }); state = null; screen = 'landing'; history.replaceState({}, '', '/'); render(); flash('Conta apagada.');
+      if (!confirm('Apagar definitivamente todos os dados do Caderno?')) return;
+      await post('/api/delete-account', { confirm: data.get('confirm') });
+      screen = 'today'; guideStep = 0; flash('Dados apagados.'); await refresh();
     }
   } catch (error) { flash(error.message); }
   finally { if (button instanceof HTMLButtonElement) button.disabled = false; }
@@ -745,9 +780,10 @@ document.addEventListener('change', async (event) => {
     if (name) name.textContent = event.target.files?.[0]?.name || 'Nenhum ficheiro escolhido';
   }
 });
-window.addEventListener('popstate', () => { screen = location.pathname === '/privacidade' ? 'privacy' : location.pathname === '/termos' ? 'terms' : location.pathname === '/app' ? 'today' : 'landing'; render(); });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-if (location.pathname === '/privacidade') screen = 'privacy';
-if (location.pathname === '/termos') screen = 'terms';
-try { await refresh(); }
-catch (error) { root.innerHTML = `<div class="wrap legal"><h1>Não foi possível abrir o Caderno.</h1><p>${esc(error.message)}</p><button onclick="location.reload()">Tentar novamente</button></div>`; }
+if (location.pathname !== '/app') history.replaceState({}, '', '/app');
+try {
+  await refresh();
+  // Na app Windows a origem muda a cada arranque; um service worker só acumularia caches.
+  if (!state?.desktop && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+catch (error) { root.innerHTML = `<main class="auth"><h1>Não foi possível abrir o Caderno.</h1><p>${esc(error.message)}</p><button onclick="location.reload()">Tentar novamente</button></main>`; }

@@ -8,3 +8,8 @@ release/
 out/
 data/
 material/*/
+
+# Notas pessoais: ficam só nesta pasta.
+PLAN.md
+PROMPT-INICIAL.md
+PROGRESS.md

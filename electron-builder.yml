@@ -21,3 +21,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   runAfterFinish: true
+# Gera latest.yml e app-update.yml para as atualizações automáticas (electron-updater).
+# O upload é feito pelo workflow Windows desktop, não pelo electron-builder.
+publish:
+  provider: github
+  owner: miguelaopt
+  repo: caderno
