@@ -51,7 +51,7 @@ Há dois pedidos diferentes: primeiro, a **candidatura ao programa gratuito** no
 - [x] [Política de privacidade](https://caderno.me/privacidade) publicada, incluindo GitHub, Ko-fi e os fornecedores de IA.
 - [x] No instalador público v0.3.1, os metadados do instalador e do `Caderno.exe` indicam produto `Caderno` e versão `0.3.1`.
 - [ ] Confirmar manualmente a autenticação de dois fatores em [GitHub → Password and authentication](https://github.com/settings/security); a API usada nesta verificação não mostrou o estado. A SignPath também exige autenticação multifator na sua conta.
-- [ ] Na candidatura, explicar que a aplicação consulta o GitHub para atualizações ao abrir e a cada quatro horas e perguntar se a SignPath exige aviso de privacidade no instalador e opção de desativar essa consulta.
+- [ ] Esclarecer com a SignPath se a consulta automática de atualizações exige aviso de privacidade no instalador e opção de desativação. O formulário mostrado pelo proprietário não tem campo próprio para esta pergunta.
 - [ ] Juntar provas reais de adoção ou confiança externas: o projeto acaba de ser publicado e ainda não tem reputação pública verificável.
 - [ ] Resolver a ambiguidade do nome `Caderno` nas pesquisas antes de afirmar que o nome identifica claramente este projeto.
 
@@ -66,7 +66,7 @@ Depois de confirmares o 2FA no GitHub, podes preencher o formulário com respost
 
 ### 2. Candidatura
 
-1. Em [signpath.org/apply.html](https://signpath.org/apply.html), preencher o formulário com o [repositório](https://github.com/miguelaopt/caderno), as [releases](https://github.com/miguelaopt/caderno/releases), o [site](https://caderno.me), a [política de assinatura](https://github.com/miguelaopt/caderno#code-signing-policy) e a [política de privacidade](https://caderno.me/privacidade). Descrever a app como ferramenta de estudo Windows de código aberto, compilada no GitHub Actions, com Moodle e IA opcionais, dados locais e verificação de atualizações pelo GitHub. Incluir a pergunta de privacidade indicada acima.
+1. Em [signpath.org/apply.html](https://signpath.org/apply.html), preencher o formulário com os valores da tabela abaixo. O campo Description pede apenas o propósito da aplicação, sem lista de funcionalidades específicas ou dependências. A [política de assinatura](https://github.com/miguelaopt/caderno#code-signing-policy) e a [política de privacidade](https://caderno.me/privacidade) já estão públicas. Tratar a dúvida sobre as atualizações em contacto separado com a SignPath.
 2. Esperar pela aprovação. A SignPath verifica o projeto manualmente; pode demorar algumas semanas.
 3. Depois de aprovado, configurar no [SignPath.io](https://app.signpath.io) uma organização, um projeto, uma política de assinatura e a configuração dos artefactos. Guardar os identificadores e o token da API para o workflow; os valores concretos só são conhecidos nessa fase.
 
