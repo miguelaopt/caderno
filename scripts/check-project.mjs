@@ -9,7 +9,7 @@ const sources = [...(await readdir('lib')).filter((name) => name.endsWith('.mjs'
   'web/product.js'];
 
 if (mode === 'typecheck') {
-  const result = spawnSync('node_modules/.bin/tsc', ['--project', 'tsconfig.json'], { stdio: 'inherit' });
+  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--project', 'tsconfig.json'], { stdio: 'inherit' });
   process.exit(result.status ?? 1);
 }
 
