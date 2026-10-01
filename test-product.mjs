@@ -84,7 +84,7 @@ await new Promise((resolve) => moodle.listen(0, '127.0.0.1', resolve));
 const moodleUrl = `http://127.0.0.1:${moodle.address().port}`;
 
 const child = spawn(process.execPath, ['scripts/product.mjs'], {
-  cwd: process.cwd(), env: { ...process.env, PORT: '0', PRODUCT_DB_PATH: join(temp, 'app.db'),
+  cwd: process.cwd(), env: { ...process.env, ANTHROPIC_API_KEY: '', PORT: '0', PRODUCT_DB_PATH: join(temp, 'app.db'),
     PRODUCT_FILES_DIR: join(temp, 'files'), MOODLE_URL: moodleUrl, MOODLE_SERVICE: 'personal_service' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -328,11 +328,32 @@ try {
   const giftCheckoutDb = openProductDb(join(temp, 'app.db'));
   await assert.rejects(checkoutSession(giftCheckoutDb, { id: userId, email: 'alice@example.test', email_verified_at: 1 }), /Já tens acesso/);
   giftCheckoutDb.close();
-  assert.equal((await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name: 'Segunda' } })).status, 201);
+  const secondCourseResponse = await request('/api/manual-course', { cookie: alice, method: 'POST', json: { name: 'Segunda' } });
+  assert.equal(secondCourseResponse.status, 201);
+  const secondCourseId = (await secondCourseResponse.json()).id;
+  const secondUpload = await request(`/api/upload?course=${secondCourseId}`, { cookie: alice, method: 'POST',
+    bytes: moodlePdf, headers: { 'content-type': 'application/pdf', 'x-filename': 'segunda.pdf' } });
+  assert.equal(secondUpload.status, 201);
+  const secondFileId = (await secondUpload.json()).id;
+  const secondDb = openProductDb(join(temp, 'app.db'));
+  const secondHash = secondDb.prepare('SELECT hash FROM files WHERE id=?').get(secondFileId).hash;
+  secondDb.prepare('INSERT INTO analyses(file_id,hash,model,summary,topics_json,questions_json,created_at) VALUES(?,?,?,?,?,?,?)')
+    .run(secondFileId, secondHash, 'test', 'Resumo da segunda cadeira', '{}',
+      JSON.stringify([{ pergunta: 'Pergunta da segunda?', resposta: 'Resposta da segunda.' }]), 0);
+  secondDb.close();
+  const firstCards = await (await request(`/api/cards?course=${courseId}`, { cookie: alice })).json();
+  const secondCards = await (await request(`/api/cards?course=${secondCourseId}`, { cookie: alice })).json();
+  assert.ok(firstCards.cards.every((card) => card.courseId === courseId));
+  assert.equal(secondCards.cards.length, 1);
+  assert.equal(secondCards.cards[0].courseId, secondCourseId);
+  const mixedCards = await (await request(`/api/cards?course=${courseId}&course=${secondCourseId}`, { cookie: alice })).json();
+  assert.equal(mixedCards.cards.length, firstCards.cards.length + secondCards.cards.length);
+  assert.equal((await request(`/api/cards?course=${secondCourseId}`, { cookie: bob })).status, 404);
   assert.equal((await request('/api/delete-account', { cookie: alice, method: 'POST', json: { password: 'uma-password-longa-123' } })).status, 200);
   assert.equal((await request('/api/state', { cookie: alice })).status, 401);
   const ossChild = spawn(process.execPath, ['scripts/product.mjs'], { cwd: process.cwd(),
     env: { ...process.env, ENABLE_HOSTED_BILLING: 'false', ANTHROPIC_API_KEY: '', PORT: '0',
+      NODE_ENV: 'desktop', DESKTOP_CONFIG_PATH: join(temp, 'desktop-config.json'), MOODLE_URL: '',
       PRODUCT_DB_PATH: join(temp, 'oss.db'), PRODUCT_FILES_DIR: join(temp, 'oss-files') },
     stdio: ['ignore', 'pipe', 'pipe'] });
   try {
@@ -349,6 +370,12 @@ try {
       body: JSON.stringify({ email: 'oss@example.test', password: 'uma-password-longa-123' }) });
     assert.equal(ossRegister.status, 201);
     const ossCookie = ossRegister.headers.get('set-cookie').split(';')[0];
+    const saveMoodle = async (url) => fetch(ossBase + '/api/desktop/moodle-url', { method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ url }) });
+    assert.equal((await saveMoodle('http://moodle.example.test')).status, 400);
+    assert.equal((await saveMoodle('https://moodle.example.test/')).status, 200);
+    assert.equal((await (await fetch(ossBase + '/api/state', { headers: { cookie: ossCookie } })).json()).moodleUrl,
+      'https://moodle.example.test');
     for (const name of ['Primeira', 'Segunda']) {
       const response = await fetch(ossBase + '/api/manual-course', { method: 'POST',
         headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ name }) });
@@ -357,6 +384,7 @@ try {
     const ossState = await (await fetch(ossBase + '/api/state', { headers: { cookie: ossCookie } })).json();
     assert.equal(ossState.courses.length, 2);
     assert.equal(ossState.hostedBilling, false);
+    assert.equal(ossState.desktop, true);
   } finally {
     if (ossChild.exitCode === null) { ossChild.kill(); await once(ossChild, 'exit').catch(() => {}); }
   }

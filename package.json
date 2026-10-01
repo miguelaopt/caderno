@@ -1,8 +1,11 @@
 {
   "name": "app-estudos",
   "version": "0.1.0",
+  "description": "Aplicação de estudo offline com Moodle, PDFs e IA opcional",
+  "author": "Miguel Ferreira",
   "private": true,
   "type": "module",
+  "main": "desktop/main.mjs",
   "engines": {
     "node": ">=24"
   },
@@ -15,6 +18,8 @@
     "serve": "node scripts/product.mjs",
     "start": "node scripts/product.mjs",
     "legacy:serve": "node scripts/serve.mjs",
+    "desktop:dev": "electron .",
+    "desktop:dist": "electron-builder --win nsis --x64 --publish never",
     "build": "node scripts/check-project.mjs build",
     "lint": "node scripts/check-project.mjs lint",
     "typecheck": "node scripts/check-project.mjs typecheck"
@@ -29,6 +34,8 @@
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@types/nodemailer": "^8.0.2",
+    "electron": "^44.4.1",
+    "electron-builder": "^26.17.0",
     "playwright-core": "^1.63.0",
     "typescript": "^7.0.2"
   }

@@ -11,5 +11,5 @@
     "types": ["node"],
     "lib": ["ES2024", "DOM", "DOM.Iterable"]
   },
-  "include": ["lib/product-security.mjs", "lib/product-db.mjs", "lib/product-sync.mjs", "scripts/product.mjs", "web/product.js"]
+  "include": ["lib/product-security.mjs", "lib/product-db.mjs", "lib/product-sync.mjs", "scripts/product.mjs", "desktop/main.mjs", "web/product.js"]
 }

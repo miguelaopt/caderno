@@ -8,6 +8,7 @@ Este documento reúne limitações observadas no código. Não representa uma pr
 - Identificar entidade responsável, contacto, base jurídica, retenção e condições finais nas páginas legais antes de uma instalação pública.
 - Fazer uma revisão externa de segurança e testar restauro dos backups cifrados.
 - Validar em ambiente real a integração de cada fornecedor de IA suportado e os modelos selecionados por utilizadores. Os testes automáticos usam respostas simuladas.
+- Validar o instalador e o visualizador PDF em Windows 10 e 11 reais, assinar o instalador e documentar atualizações sem perda de dados.
 
 ## Melhorias de produto
 
@@ -16,6 +17,8 @@ Este documento reúne limitações observadas no código. Não representa uma pr
 - Tornar a sincronização e os resumos recuperáveis após reinício do processo, com progresso visível por ficheiro.
 - Medir acessibilidade com utilizadores e completar uma auditoria WCAG AA.
 - Disponibilizar importação da exportação de dados para facilitar migração entre instalações.
+- Permitir importar DOCX e PPTX com pré-visualização e extração de texto. A versão atual aceita PDF.
+- Guardar respostas e resultados completos dos simulados para retomar uma sessão interrompida e comparar tentativas.
 
 ## Questões conhecidas
 

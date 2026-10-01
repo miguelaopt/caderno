@@ -1,6 +1,7 @@
 .env
 .env.local
 node_modules/
+release/
 
 # Dados locais: PDFs, base de dados e despejos de inspeção.
 # Nada disto vai para o git.

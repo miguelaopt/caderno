@@ -1,0 +1,31 @@
+name: Windows desktop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run desktop:dist
+      - name: Confirmar instalador
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release/Caderno-*-Windows-x64.exe | Select-Object -First 1
+          if (-not $installer -or $installer.Length -lt 10000000) { throw 'Instalador Windows em falta ou incompleto' }
+          Get-FileHash $installer.FullName -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: caderno-windows-x64
+          path: release/Caderno-*-Windows-x64.exe
+          if-no-files-found: error

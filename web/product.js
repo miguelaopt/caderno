@@ -12,6 +12,7 @@ let fileDetail = null;
 let cardDeck = null;
 let cardIndex = 0;
 let cardRevealed = false;
+let cardCourseIds = new Set();
 let answer = null;
 let adminData = null;
 let fileSearch = '';
@@ -25,6 +26,15 @@ let practiceCourse = null;
 let practiceIndex = 0;
 let practiceRevealed = false;
 let practiceDraft = '';
+let revisionCourse = null;
+let examCourse = null;
+let examQuestions = [];
+let examAnswers = [];
+let examGrades = {};
+let examIndex = 0;
+let examEndsAt = null;
+let examCompleted = false;
+let examTimer = null;
 let focusFileId = null;
 let focusDuration = 25 * 60;
 let focusRemaining = focusDuration;
@@ -117,6 +127,8 @@ function shell(content) {
     <button data-screen="explain" aria-current="${screen === 'explain'}">Explicações</button>
     <button data-screen="cards" aria-current="${screen === 'cards'}">Flashcards</button>
     <button data-screen="practice" aria-current="${screen === 'practice'}">Treino</button>
+    <button data-screen="revision" aria-current="${screen === 'revision'}">Revisão</button>
+    <button data-screen="exam" aria-current="${screen === 'exam'}">Simulado</button>
     <button data-screen="focus" aria-current="${screen === 'focus'}">Foco</button>
     ${state?.admin ? `<button data-screen="admin" aria-current="${screen === 'admin'}">Administração</button>` : ''}
     <button data-screen="settings" aria-current="${screen === 'settings'}">Definições</button>
@@ -161,6 +173,8 @@ function today() {
       <button data-screen="explain"><strong>Explicações</strong><small>Entender um PDF com fontes</small></button>
       <button data-screen="cards"><strong>Flashcards</strong><small>Rever no momento certo</small></button>
       <button data-screen="practice"><strong>Treino</strong><small>Responder de memória</small></button>
+      <button data-screen="revision"><strong>Revisão</strong><small>Resumos por cadeira</small></button>
+      <button data-screen="exam"><strong>Simulado</strong><small>Testar sem consultar</small></button>
       <button data-screen="focus"><strong>Foco</strong><small>Estudar por blocos de tempo</small></button></div></section>
     ${plan.forecast?.some((day) => day.allocations.length) ? `<section class="card" style="margin-top:18px"><h2>Os próximos dias</h2><p class="muted">Distribuição indicativa até aos exames. Ajusta-se quando estudares ou mudares a disponibilidade.</p>
       <div class="grid">${plan.forecast.map((day) => `<div class="item"><strong>${new Date(`${day.date}T12:00:00`).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric' })}</strong><br>
@@ -173,6 +187,8 @@ function courses() {
   shell(`<div class="topline"><div><span class="eyebrow">Organização</span><h1>Cadeiras</h1><p class="muted">Escolhe a cadeira que queres acompanhar.</p></div></div>
     ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar os materiais das cadeiras selecionadas. Esta página atualiza-se automaticamente.</div>' : ''}
     ${state.connection ? `<div class="notice">Moodle ligado: ${esc(state.connection.site_name)}. Os teus ficheiros ficam privados.</div>` : '<div class="notice">Sem ligação ao Moodle. Usa o teu utilizador e palavra-passe abaixo ou envia PDFs manualmente.</div>'}
+    ${state.desktop ? `<section class="card" style="margin-top:24px"><h2>Endereço do Moodle</h2><p class="muted">Configura uma vez a raiz HTTPS da tua plataforma. É guardada neste computador.</p>
+      <form id="desktop-moodle-form" class="row"><label style="flex:1;min-width:240px">URL do Moodle<input type="url" name="url" value="${esc(state.moodleUrl)}" placeholder="https://moodle.exemplo.pt" required></label><button class="primary" ${state.connection ? 'disabled title="Desliga primeiro o Moodle"' : ''}>Guardar endereço</button></form></section>` : ''}
     <div class="two" style="margin-top:24px"><section class="card"><h2>${state.connection ? 'Ligar ou renovar' : 'Ligar o Moodle'}</h2>
       <p>Usa as credenciais da tua conta Moodle. Se entras através de SSO, esta forma de ligação pode não funcionar.</p>
       <form id="connect-form"><label>Utilizador Moodle<input name="username" type="text" autocomplete="username" maxlength="254" required></label><label>Palavra-passe Moodle<input name="password" type="password" autocomplete="current-password" required></label><button class="primary">Ligar Moodle</button></form>
@@ -181,7 +197,7 @@ function courses() {
       <form id="manual-course-form"><label>Nome da cadeira<input name="name" maxlength="100" required placeholder="Ex.: Matemática"></label><button>Criar cadeira</button></form></section></div>
     <section class="card" style="margin-top:18px"><h2>As tuas cadeiras</h2>${state.courses.length ? `<form id="course-form">
       ${state.courses.map((course) => `<div class="course-choice"><input id="course-${course.id}" type="checkbox" name="course" value="${course.id}" ${course.selected ? 'checked' : ''}><label for="course-${course.id}">${esc(course.name)} <small>· ${course.source === 'manual' ? 'manual' : 'Moodle'}</small></label></div>`).join('')}
-      <p><small>${state.user.plan === 'free' ? 'Plano Grátis: uma cadeira de cada vez. ' : ''}${selected.length ? `Em acompanhamento: ${selected.map((course) => esc(course.name)).join(', ')}.` : ''} Guardar a seleção inicia a importação dos PDFs.</small></p><button class="primary">Guardar seleção e importar</button></form>
+      <p><small>${state.hostedBilling && state.user.plan === 'free' ? 'Plano Grátis: uma cadeira de cada vez. ' : ''}${selected.length ? `Em acompanhamento: ${selected.map((course) => esc(course.name)).join(', ')}.` : ''} Guardar a seleção inicia a importação dos PDFs.</small></p><button class="primary">Guardar seleção e importar</button></form>
       <div style="margin-top:28px"><h3>Datas de exame</h3><p class="muted">Ajuda o plano a distribuir o estudo até à prova.</p>
       ${selected.map((course) => `<form class="exam-form row" data-course="${course.id}" style="margin-bottom:12px"><label style="margin:0;flex:1;min-width:200px">${esc(course.name)}<input type="date" name="date" value="${course.exam_at ? new Date(course.exam_at * 1000).toISOString().slice(0, 10) : ''}"></label><button>Guardar data</button></form>`).join('')}</div>` : '<div class="empty">Ainda não tens cadeiras.</div>'}</section>`);
 }
@@ -241,10 +257,22 @@ function detail() {
         <div class="row"><button data-quiz="${file.id}" data-index="${index}" data-correct="false">Preciso de rever</button><button data-quiz="${file.id}" data-index="${index}" data-correct="true">Consegui</button></div></details>`).join('') : '<p class="muted">As perguntas aparecem quando a análise estiver disponível.</p>'}</section></div>`);
 }
 
+async function loadCards() {
+  const query = new URLSearchParams();
+  for (const id of cardCourseIds) query.append('course', id);
+  cardDeck = await api(`/api/cards${query.size ? `?${query}` : ''}`);
+  cardIndex = 0; cardRevealed = false;
+  render();
+}
+
 function cards() {
+  const courses = state.courses.filter((course) => course.selected);
+  cardCourseIds = new Set([...cardCourseIds].filter((id) => courses.some((course) => course.id === id)));
   const deck = cardDeck?.cards || [];
   const card = deck[cardIndex];
   shell(`<div class="topline"><div><span class="eyebrow">Revisão espaçada</span><h1>Flashcards</h1><p class="muted">${cardDeck?.totalDue || 0} para rever hoje. As cartas voltam quando for altura de as rever.</p></div></div>
+    <section class="card" style="margin-bottom:18px"><h2 style="font-size:1.15rem">Cadeiras deste baralho</h2><div class="row"><button type="button" data-action="cards-all" aria-pressed="${cardCourseIds.size === 0}">Todas</button>
+      ${courses.map((course) => `<label class="checkbox-label" style="margin:0"><input type="checkbox" data-card-course="${course.id}" ${cardCourseIds.has(course.id) ? 'checked' : ''}>${esc(course.name)}</label>`).join('')}</div><p class="muted" style="margin-top:12px">Escolhe uma ou várias cadeiras. A seleção não altera o teu progresso.</p></section>
     <div class="card" style="max-width:680px">${card ? `<small>${esc(card.course)} · ${esc(card.filename)} · ${cardIndex + 1}/${deck.length}</small>
       <h2 style="margin-top:22px">${esc(card.pergunta)}</h2>${cardRevealed ? `<div class="notice" style="margin:25px 0">${esc(card.resposta)}</div>
       ${card.explicacao ? `<p class="muted">${esc(card.explicacao)}</p>` : ''}<p><a href="/material?id=${encodeURIComponent(card.fileId)}" target="_blank" rel="noopener">Consultar PDF ↗</a></p>
@@ -298,6 +326,57 @@ function practice() {
       <div class="row" style="margin-top:18px"><button data-practice-grade="false">Preciso de rever</button><button class="primary" data-practice-grade="true">Consegui explicar</button></div>`}
       <p style="margin-top:20px"><a href="/material?id=${encodeURIComponent(item.fileId)}" target="_blank" rel="noopener">Conferir o PDF ↗</a></p></section>
       <aside class="card method-note"><h3>Como estudar</h3><ol><li>Responde de memória.</li><li>Compara com a solução.</li><li>Volta ao PDF se faltou alguma parte.</li></ol><p><small>Estas perguntas são geradas a partir dos PDFs analisados.</small></p></aside></div>` : `<div class="empty">${practiceDeck ? practiceIndex ? 'Terminaste as perguntas desta sessão.' : 'Ainda não há perguntas nesta cadeira. Analisa os PDFs para as criar.' : 'A carregar perguntas…'}<div style="margin-top:16px"><button data-screen="files">Ver materiais</button></div></div>`}`);
+}
+
+function revision() {
+  const courses = state.courses.filter((course) => course.selected);
+  if (!courses.some((course) => course.id === revisionCourse)) revisionCourse = courses[0]?.id || null;
+  const files = state.files.filter((file) => file.course_id === revisionCourse);
+  const ready = files.filter((file) => file.summary);
+  shell(`<div class="topline"><div><span class="eyebrow">Antes da prova</span><h1>Folha de revisão</h1><p class="muted">Os resumos e conceitos dos teus materiais, reunidos por cadeira. Abre sempre o PDF para conferir detalhes.</p></div></div>
+    ${courses.length ? `<label class="practice-filter">Cadeira<select id="revision-course">${courses.map((course) => `<option value="${course.id}" ${course.id === revisionCourse ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : '<div class="empty">Seleciona uma cadeira para começar.</div>'}
+    ${courses.length ? `<p class="muted">${ready.length} de ${files.length} materiais com resumo disponível.</p>
+    ${ready.length ? `<div class="stack">${ready.map((file) => {
+      let topics = [];
+      try { topics = JSON.parse(file.topics_json || '{}').topicos || []; } catch {}
+      return `<section class="card revision-item"><div class="row" style="justify-content:space-between"><h2>${esc(file.filename)}</h2><a class="button" href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">Abrir PDF ↗</a></div>
+        <p>${esc(file.summary)}</p>${topics.length ? `<div class="row">${topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}</section>`;
+    }).join('')}</div>` : '<div class="empty">Ainda não há resumos nesta cadeira. Analisa os PDFs em Materiais para criar a folha de revisão.</div>'}` : ''}`);
+}
+
+const examTime = () => {
+  const seconds = Math.max(0, Math.ceil(((examEndsAt || Date.now()) - Date.now()) / 1000));
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+};
+
+function finishExam() {
+  if (!examEndsAt || examCompleted) return;
+  const input = document.querySelector('#exam-answer');
+  if (input instanceof HTMLTextAreaElement) examAnswers[examIndex] = input.value.trim();
+  examCompleted = true; examEndsAt = null;
+  clearInterval(examTimer); examTimer = null;
+  if (screen === 'exam') render();
+}
+
+function exam() {
+  const courses = state.courses.filter((course) => course.selected);
+  if (!courses.some((course) => course.id === examCourse)) examCourse = courses[0]?.id || null;
+  const current = examQuestions[examIndex];
+  const graded = Object.values(examGrades).filter(Boolean).length;
+  shell(`<div class="topline"><div><span class="eyebrow">Recuperação ativa</span><h1>Simulado</h1><p class="muted">Até 10 perguntas da cadeira. Escreve sem consultar, termina e compara as respostas. O tempo e as respostas desta sessão ficam apenas neste dispositivo.</p></div></div>
+    ${courses.length ? `<label class="practice-filter">Cadeira<select id="exam-course" ${examEndsAt ? 'disabled' : ''}>${courses.map((course) => `<option value="${course.id}" ${course.id === examCourse ? 'selected' : ''}>${esc(course.name)}</option>`).join('')}</select></label>` : '<div class="empty">Seleciona uma cadeira para começar.</div>'}
+    ${!courses.length ? '' : !examQuestions.length ? '<div class="empty">Ainda não há perguntas nesta cadeira. Analisa os PDFs primeiro.</div>' : !examEndsAt && !examCompleted ? `<section class="card"><h2>Pronto para começar?</h2><p>${examQuestions.length} perguntas · 20 minutos · sem respostas visíveis durante o simulado.</p><button class="primary" data-action="exam-start">Começar simulado</button></section>` :
+    examCompleted ? `<p class="muted">${graded} respostas marcadas como conseguidas. Compara cada resposta e regista o que precisas de rever.</p><div class="stack">${examQuestions.map((item, index) => `<section class="card"><small>${index + 1}/${examQuestions.length} · ${esc(item.filename)}</small><h2 class="exam-question">${esc(item.pergunta)}</h2><div class="self-answer"><small>A tua resposta</small><p>${esc(examAnswers[index] || 'Sem resposta.')}</p></div><div class="notice"><strong>Resposta de referência</strong><p>${esc(item.resposta)}</p>${item.explicacao ? `<p>${esc(item.explicacao)}</p>` : ''}</div><p><a href="/material?id=${encodeURIComponent(item.fileId)}" target="_blank" rel="noopener">Conferir PDF ↗</a></p>${Object.hasOwn(examGrades, index) ? `<span class="tag">${examGrades[index] ? 'Consegui explicar' : 'Preciso de rever'}</span>` : `<div class="row"><button data-exam-grade="false" data-exam-index="${index}">Preciso de rever</button><button class="primary" data-exam-grade="true" data-exam-index="${index}">Consegui explicar</button></div>`}</section>`).join('')}</div><button data-action="exam-reset" style="margin-top:18px">Novo simulado</button>` :
+    `<section class="card"><div class="row" style="justify-content:space-between"><small>${examIndex + 1}/${examQuestions.length} · ${esc(current.filename)}</small><strong id="exam-clock" aria-live="off">${examTime()}</strong></div><h2 class="study-question">${esc(current.pergunta)}</h2><label>A tua resposta<textarea id="exam-answer" rows="7" placeholder="Escreve o que te lembras, sem consultar o material.">${esc(examAnswers[examIndex] || '')}</textarea></label><div class="row"><button class="primary" data-action="exam-next">${examIndex + 1 === examQuestions.length ? 'Terminar e corrigir' : 'Próxima pergunta'}</button><button data-action="exam-finish">Terminar já</button></div></section>`}`);
+}
+
+async function loadExamQuestions() {
+  clearInterval(examTimer); examTimer = null;
+  examEndsAt = null; examCompleted = false; examIndex = 0; examAnswers = []; examGrades = {};
+  if (!examCourse) { examQuestions = []; render(); return; }
+  const deck = await api(`/api/practice?course=${encodeURIComponent(examCourse)}`);
+  examQuestions = deck.questions.slice(0, 10);
+  render();
 }
 
 const clockText = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -395,6 +474,8 @@ function render() {
   if (screen === 'explain') return explanations();
   if (screen === 'cards') return cards();
   if (screen === 'practice') return practice();
+  if (screen === 'revision') return revision();
+  if (screen === 'exam') return exam();
   if (screen === 'focus') return focus();
   if (screen === 'admin') return admin();
   if (screen === 'settings') return settings();
@@ -423,6 +504,27 @@ async function action(target) {
     const input = document.querySelector('#practice-answer');
     practiceDraft = input instanceof HTMLTextAreaElement ? input.value.trim() : '';
     practiceRevealed = true; render();
+  } else if (name === 'cards-all') {
+    cardCourseIds.clear(); cardDeck = null; await loadCards();
+  } else if (name === 'exam-start') {
+    examAnswers = Array(examQuestions.length).fill(''); examGrades = {}; examIndex = 0;
+    examCompleted = false; examEndsAt = Date.now() + 20 * 60 * 1000;
+    clearInterval(examTimer);
+    examTimer = setInterval(() => {
+      if (Date.now() >= examEndsAt) return finishExam();
+      const clock = document.querySelector('#exam-clock');
+      if (clock) clock.textContent = examTime();
+    }, 1000);
+    render();
+  } else if (name === 'exam-next') {
+    const input = document.querySelector('#exam-answer');
+    if (input instanceof HTMLTextAreaElement) examAnswers[examIndex] = input.value.trim();
+    if (examIndex + 1 >= examQuestions.length) finishExam();
+    else { examIndex++; render(); }
+  } else if (name === 'exam-finish') {
+    finishExam();
+  } else if (name === 'exam-reset') {
+    await loadExamQuestions();
   } else if (name === 'focus-start') {
     focusEndsAt = Date.now() + focusRemaining * 1000;
     focusTimer = setInterval(tickFocus, 1000);
@@ -459,12 +561,20 @@ async function action(target) {
 }
 
 document.addEventListener('click', async (event) => {
-  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-simple],[data-favorite-file],[data-explain-prompt],[data-practice-grade],[data-focus-grade]') : null;
+  const target = event.target instanceof Element ? event.target.closest('[data-action],[data-screen],[data-file],[data-study],[data-card],[data-analyze],[data-quiz],[data-simple],[data-favorite-file],[data-explain-prompt],[data-practice-grade],[data-focus-grade],[data-exam-grade]') : null;
   if (!target) return;
   if (!(target instanceof HTMLElement)) return;
   event.preventDefault();
   try {
-    if (target.dataset.explainPrompt) {
+    if (target.dataset.examGrade) {
+      const index = Number(target.dataset.examIndex);
+      const item = examQuestions[index];
+      if (!examCompleted || !item || Object.hasOwn(examGrades, index)) return;
+      const correct = target.dataset.examGrade === 'true';
+      await post('/api/quiz', { fileId: item.fileId, index: item.index, correct });
+      examGrades[index] = correct;
+      render();
+    } else if (target.dataset.explainPrompt) {
       if (!(target instanceof HTMLButtonElement)) return;
       if (!state.ai?.configured || !state.ai?.consented) throw new Error('Ativa primeiro a análise por IA.');
       if (!explanationFile) throw new Error('Escolhe um PDF com texto extraído.');
@@ -512,11 +622,15 @@ document.addEventListener('click', async (event) => {
       cardIndex++; cardRevealed = false; render();
     } else if (target.dataset.screen) {
       screen = target.dataset.screen; history.replaceState({}, '', '/app');
-      if (screen === 'cards') { cardDeck = await api('/api/cards'); cardIndex = 0; cardRevealed = false; }
+      if (screen === 'cards') await loadCards();
       if (screen === 'practice') {
         practiceCourse = state.courses.find((course) => course.selected)?.id || null;
         practiceDeck = await api(`/api/practice?course=${encodeURIComponent(practiceCourse || '')}`);
         practiceIndex = 0; practiceRevealed = false; practiceDraft = '';
+      }
+      if (screen === 'exam' && !examEndsAt && !examCompleted) {
+        examCourse = state.courses.find((course) => course.selected)?.id || null;
+        await loadExamQuestions();
       }
       if (screen === 'admin') adminData = await api('/api/admin');
       render();
@@ -536,6 +650,8 @@ document.addEventListener('submit', async (event) => {
     if (form.id === 'auth-form') {
       await post(authMode === 'register' ? '/api/register' : '/api/login', { email: data.get('email'), password: data.get('password') });
       screen = 'today'; history.replaceState({}, '', '/app'); await refresh();
+    } else if (form.id === 'desktop-moodle-form') {
+      await post('/api/desktop/moodle-url', { url: data.get('url') }); flash('Endereço do Moodle guardado neste computador.'); await refresh();
     } else if (form.id === 'connect-form') {
       const result = await post('/api/connect', { username: data.get('username'), password: data.get('password') });
       form.reset(); flash(`${result.count} cadeiras encontradas. Escolhe a que queres seguir.`); await refresh();
@@ -587,6 +703,12 @@ document.addEventListener('input', (event) => {
   }
 });
 document.addEventListener('change', async (event) => {
+  if (event.target instanceof HTMLInputElement && event.target.dataset.cardCourse) {
+    if (event.target.checked) cardCourseIds.add(event.target.dataset.cardCourse);
+    else cardCourseIds.delete(event.target.dataset.cardCourse);
+    cardDeck = null;
+    try { await loadCards(); } catch (error) { flash(error.message); }
+  }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'file-course') { selectedCourse = event.target.value; render(); }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'explain-course') {
     explanationCourse = event.target.value; explanationFile = null; explanationAnswer = null; render();
@@ -598,6 +720,13 @@ document.addEventListener('change', async (event) => {
     practiceCourse = event.target.value; practiceDeck = null; practiceIndex = 0; practiceRevealed = false; practiceDraft = ''; render();
     try { practiceDeck = await api(`/api/practice?course=${encodeURIComponent(practiceCourse)}`); render(); }
     catch (error) { flash(error.message); }
+  }
+  if (event.target instanceof HTMLSelectElement && event.target.id === 'revision-course') {
+    revisionCourse = event.target.value; render();
+  }
+  if (event.target instanceof HTMLSelectElement && event.target.id === 'exam-course') {
+    examCourse = event.target.value;
+    try { await loadExamQuestions(); } catch (error) { flash(error.message); }
   }
   if (event.target instanceof HTMLSelectElement && event.target.id === 'focus-file') focusFileId = event.target.value;
   if (event.target instanceof HTMLSelectElement && event.target.id === 'focus-duration') {

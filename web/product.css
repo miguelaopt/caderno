@@ -14,3 +14,5 @@ textarea{font:inherit;background:var(--bg);border:1px solid var(--line);border-r
 .practice-filter{max-width:340px;margin-bottom:22px}
 @media(max-width:900px){.study-layout{grid-template-columns:1fr}.answer-panel{position:static}.method-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:780px){.sidebar-label{display:none}.sidebar button[aria-current=true]{box-shadow:inset 0 -3px 0 var(--accent)}.prompt-grid{grid-template-columns:1fr}.focus-clock{margin:18px 0}}
+.method-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}.revision-item h2{font-size:1.3rem;margin:0}.revision-item p{max-width:75ch}.exam-question{font-size:clamp(1.4rem,3vw,2rem);margin:22px 0}#exam-clock{font-variant-numeric:tabular-nums;color:var(--accent);font-size:1.3rem}
+@media(max-width:780px){.method-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}

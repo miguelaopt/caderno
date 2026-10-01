@@ -1,0 +1,23 @@
+appId: pt.caderno.desktop
+productName: Caderno
+directories:
+  output: release
+files:
+  - desktop/**
+  - lib/**
+  - scripts/product.mjs
+  - web/**
+  - package.json
+asar: true
+win:
+  icon: web/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Caderno-${version}-Windows-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  runAfterFinish: true

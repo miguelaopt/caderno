@@ -5,6 +5,7 @@ import { join } from 'node:path';
 const mode = process.argv[2];
 const sources = [...(await readdir('lib')).filter((name) => name.endsWith('.mjs')).map((name) => join('lib', name)),
   ...(await readdir('scripts')).filter((name) => name.endsWith('.mjs')).map((name) => join('scripts', name)),
+  ...(await readdir('desktop')).filter((name) => name.endsWith('.mjs')).map((name) => join('desktop', name)),
   'web/product.js'];
 
 if (mode === 'typecheck') {

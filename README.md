@@ -1,10 +1,14 @@
 # Caderno
 
-O Caderno é uma aplicação de estudo para organizar PDFs, acompanhar prazos e estudar com apoio opcional de IA. Funciona com um Moodle configurado pelo operador ou apenas com ficheiros enviados manualmente. O código é publicado sob a licença MIT.
+O Caderno é uma aplicação de estudo para organizar PDFs, acompanhar prazos e estudar com apoio opcional de IA. Funciona no browser ou como aplicação Windows, com Moodle ou apenas com PDFs enviados manualmente. O código é publicado sob a licença MIT.
 
 Cada pessoa pode configurar a sua própria chave de API nas Definições. A instalação open source não cobra uma subscrição nem limita o número de cadeiras. A integração comercial antiga continua disponível apenas quando o operador ativa `ENABLE_HOSTED_BILLING=true`.
 
 > O código está pronto para desenvolvimento e uso local. Uma instalação pública ainda requer revisão das páginas legais, backups, HTTPS e validação com a instância Moodle escolhida. Ver [ROADMAP.md](docs/ROADMAP.md).
+
+## Aplicação Windows
+
+O instalador x64 e as instruções estão em [Caderno para Windows](docs/DESKTOP.md). A aplicação guarda a base de dados e a chave local em `%APPDATA%\Caderno\Dados` e os PDFs em `Documentos\Caderno\Materiais`, separados por conta e cadeira. Depois de importados, os PDFs abrem offline no visualizador da aplicação. A sincronização Moodle e os pedidos à IA precisam de internet. O instalador atual não está assinado; o workflow Windows publica um artefacto por build.
 
 ## Requisitos
 
@@ -42,7 +46,7 @@ Com uma chave pessoal, os resumos só são criados quando escolhes **Criar resum
 
 ## Ligação ao Moodle
 
-O utilizador introduz o utilizador e a palavra-passe Moodle na app. O servidor envia-os a `<MOODLE_URL>/login/token.php` para obter uma chave do serviço `MOODLE_SERVICE` (por defeito `moodle_mobile_app`). A palavra-passe não é guardada. A ligação direta pode falhar em contas com SSO ou quando o serviço móvel está desativado. O servidor valida `core_webservice_get_site_info`, verifica as funções anunciadas e só então lê as cadeiras. Para as cadeiras selecionadas usa `core_course_get_contents`; apenas PDFs são descarregados. Cada instalação do Caderno liga-se a **um Moodle configurado pelo operador** em `MOODLE_URL`; não há ainda seleção livre de servidores por utilizador.
+O utilizador introduz o utilizador e a palavra-passe Moodle na app. O servidor envia-os a `<MOODLE_URL>/login/token.php` para obter uma chave do serviço `MOODLE_SERVICE` (por defeito `moodle_mobile_app`). A palavra-passe não é guardada. A ligação direta pode falhar em contas com SSO ou quando o serviço móvel está desativado. O servidor valida `core_webservice_get_site_info`, verifica as funções anunciadas e só então lê as cadeiras. Para as cadeiras selecionadas usa `core_course_get_contents`; apenas PDFs são descarregados. Na web, cada instalação do Caderno liga-se a **um Moodle configurado pelo operador** em `MOODLE_URL`. Na app Windows, o utilizador configura esse endereço em Cadeiras. A escolha de vários servidores por conta ainda não está disponível.
 
 O token fica cifrado com AES-256-GCM. Em desenvolvimento, a aplicação cria `data/product.key` com permissão 0600. Em produção, define `TOKEN_ENCRYPTION_KEY` com 32 bytes aleatórios em hexadecimal e mantém a chave estável em backups seguros. Perder a chave exige que os alunos voltem a ligar o Moodle. Desligar apaga a cópia local do token; a revogação no servidor Moodle é feita pelo aluno em **Chaves de segurança**, pois a função de revogação não está exposta por este serviço.
 
@@ -77,7 +81,7 @@ Não coloques passwords ou tokens Moodle no `.env`. O arquivo `data/legacy-token
 
 O ecrã Hoje mostra ficheiros recentes, prazos e blocos de estudo. O plano funciona mesmo antes de haver análise por IA: estima tempo para os PDFs, usa as datas de exame e a disponibilidade de cada dia e recalcula quando um bloco é marcado como estudado. Guardar a seleção de cadeiras inicia a importação dos PDFs do Moodle; uma instalação com cadeiras selecionadas mas ainda não sincronizadas recupera a importação ao arrancar. Materiais mostra o estado de extração por ficheiro e uma prévia do texto extraído. PDFs digitalizados sem texto selecionável podem precisar de OCR.
 
-Os menus de estudo incluem **Explicações** com perguntas sobre um PDF e ligações às páginas usadas, **Flashcards** com revisão espaçada, **Treino** de recuperação ativa com autoavaliação e **Foco** com blocos de tempo associados a um material. Resumos e perguntas gerados pela IA alimentam os Flashcards e o Treino. O ecrã Explicações mostra a fila de PDFs por analisar e permite voltar a iniciá-la.
+Os menus de estudo incluem **Explicações** com perguntas sobre um PDF e ligações às páginas usadas, **Flashcards** com revisão espaçada e seleção de uma ou várias cadeiras, **Treino** de recuperação ativa com autoavaliação, **Folha de revisão** por cadeira, **Simulado** de até dez perguntas com 20 minutos e **Foco** com blocos de tempo associados a um material. Resumos e perguntas gerados pela IA alimentam Flashcards, Treino, Folha de revisão e Simulado. O ecrã Explicações mostra a fila de PDFs por analisar e permite voltar a iniciá-la. As respostas do Simulado ficam apenas na sessão; a autoavaliação entra no progresso.
 
 Na biblioteca, a pesquisa filtra nomes e resumos sem distinguir acentos; também podes guardar PDFs nos favoritos e mostrar apenas esses ficheiros. Favoritos são privados da conta e não geram pedidos de IA.
 
@@ -108,7 +112,7 @@ O build verifica referências dos assets estáticos e sintaxe. O lint verifica s
 
 ## Participar
 
-Lê [CONTRIBUTING.md](CONTRIBUTING.md) para preparar alterações e [SECURITY.md](SECURITY.md) para comunicar problemas de segurança. O trabalho pendente está em [ROADMAP.md](docs/ROADMAP.md). A licença está em [LICENSE](LICENSE).
+Lê [CONTRIBUTING.md](CONTRIBUTING.md) para preparar alterações e [SECURITY.md](SECURITY.md) para comunicar problemas de segurança. O trabalho pendente está em [ROADMAP.md](docs/ROADMAP.md). A licença está em [LICENSE](LICENSE). Há também um [prompt para Claude](docs/PROMPT-LANDING-CLAUDE.md) para uma futura revisão da landing page com as skills de design indicadas.
 
 ## Publicação
 

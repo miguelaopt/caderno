@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import { openProductDb, PRODUCT_FILES_DIR } from '../lib/product-db.mjs';
 import { id, hash, passwordHash, passwordMatches, emailCode, emailCodeMatches, encryptToken, newSession, sessionUser, sessionCookie } from '../lib/product-security.mjs';
 import { assertFunctions, storeFile, syncUser } from '../lib/product-sync.mjs';
@@ -16,7 +16,7 @@ import { callWs, baseUrl, loginWithPassword, nomeLimpo } from '../lib/moodle.mjs
 
 try { process.loadEnvFile('.env'); } catch {}
 const db = openProductDb();
-const port = Number(process.env.PORT || 4321);
+const port = Number(process.env.PORT ?? 4321);
 const now = () => Math.floor(Date.now() / 1000);
 const secure = process.env.NODE_ENV === 'production';
 const activeSyncs = new Set();
@@ -143,6 +143,7 @@ function state(user) {
     admin: !!process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID,
     digestAvailable: mailConfigured(),
     billingAvailable: billingConfigured() && mailConfigured(), hostedBilling: hostedBillingEnabled(),
+    desktop: process.env.NODE_ENV === 'desktop', moodleUrl: process.env.NODE_ENV === 'desktop' ? process.env.MOODLE_URL || '' : undefined,
     analysis: { pending: Number(pendingAnalysis), running: activeAnalysis.has(user.id) },
     ai: { configured: aiConfigured(db, user.id), settings: aiSettings(db, user.id), consented: !!preference?.ai_consent_at,
       remaining: remaining(db, user.id, plan) },
@@ -186,6 +187,23 @@ const routes = {
     send(res, { ok: true }, 200, { 'set-cookie': 'caderno_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
   },
   'GET /api/state': async (req, res) => send(res, state(requireUser(req))),
+  'POST /api/desktop/moodle-url': async (req, res) => {
+    requireUser(req);
+    if (process.env.NODE_ENV !== 'desktop' || !process.env.DESKTOP_CONFIG_PATH)
+      throw Object.assign(new Error('Esta opção só existe na aplicação Windows.'), { status: 404 });
+    if (db.prepare('SELECT 1 FROM moodle_connections LIMIT 1').get())
+      throw new Error('Desliga primeiro as contas Moodle ligadas antes de alterar o endereço.');
+    const { url } = await jsonBody(req);
+    if (typeof url !== 'string' || url.length > 2048) throw new Error('Introduz o endereço do Moodle.');
+    let parsed;
+    try { parsed = new URL(url.trim()); } catch { throw new Error('Introduz um endereço HTTPS válido.'); }
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash || !parsed.hostname)
+      throw new Error('Introduz o endereço HTTPS da raiz do Moodle, sem credenciais ou parâmetros.');
+    const moodleUrl = parsed.href.replace(/\/+$/, '');
+    await writeFile(process.env.DESKTOP_CONFIG_PATH, JSON.stringify({ moodleUrl }, null, 2), { mode: 0o600 });
+    process.env.MOODLE_URL = moodleUrl;
+    send(res, { ok: true, moodleUrl });
+  },
   'POST /api/connect': async (req, res) => {
     const user = requireUser(req);
     const { username, password } = await jsonBody(req);
@@ -375,21 +393,31 @@ const routes = {
     if (!result.changes) throw Object.assign(new Error('Material não encontrado.'), { status: 404 });
     send(res, { ok: true, favorite: data.favorite });
   },
-  'GET /api/cards': async (req, res) => {
+  'GET /api/cards': async (req, res, url) => {
     const user = requireUser(req);
-    const rows = db.prepare(`SELECT f.id AS file_id,f.filename,c.name AS course,a.questions_json
+    const chosen = [...new Set(url.searchParams.getAll('course'))];
+    if (chosen.length > 50) throw new Error('Escolhe até 50 cadeiras.');
+    if (chosen.length) {
+      const owned = db.prepare('SELECT id FROM courses WHERE user_id=? AND selected=1').all(user.id);
+      const allowed = new Set(owned.map((course) => course.id));
+      if (chosen.some((id) => !allowed.has(id)))
+        throw Object.assign(new Error('Cadeira não encontrada.'), { status: 404 });
+    }
+    const selected = new Set(chosen);
+    const rows = db.prepare(`SELECT f.id AS file_id,f.filename,c.id AS course_id,c.name AS course,a.questions_json
       FROM analyses a JOIN files f ON f.id=a.file_id JOIN courses c ON c.id=f.course_id
       WHERE f.user_id=? AND c.selected=1 AND a.hash=f.hash ORDER BY f.first_seen_at`).all(user.id);
     const history = db.prepare('SELECT studied_at,result FROM card_log WHERE user_id=? AND file_id=? AND question_index=? ORDER BY studied_at');
     const cards = [];
     for (const row of rows) {
+      if (selected.size && !selected.has(row.course_id)) continue;
       const questions = JSON.parse(String(row.questions_json || '[]'));
       questions.forEach((question, index) => {
         const visits = history.all(user.id, row.file_id, index);
         const last = visits.at(-1);
         const interval = last?.result === 'bem' ? Math.min(35, [1, 3, 7, 16, 35][Math.min(visits.length - 1, 4)]) : 1;
         if (!last || Number(last.studied_at) + interval * 86400 <= now())
-          cards.push({ fileId: row.file_id, index, filename: row.filename, course: row.course, ...question });
+          cards.push({ fileId: row.file_id, courseId: row.course_id, index, filename: row.filename, course: row.course, ...question });
       });
     }
     send(res, { cards: cards.slice(0, 20), totalDue: cards.length });
@@ -489,7 +517,7 @@ const routes = {
   },
 };
 
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${port}`);
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -504,7 +532,9 @@ const server = createServer(async (req, res) => {
       if (!file?.path) return send(res, { erro: 'Ficheiro não encontrado.' }, 404);
       const root = resolve(PRODUCT_FILES_DIR, user.id);
       const path = resolve(String(file.path));
-      if (!path.startsWith(root + '/')) return send(res, { erro: 'Ficheiro indisponível.' }, 403);
+      const inside = relative(root, path);
+      if (!inside || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside))
+        return send(res, { erro: 'Ficheiro indisponível.' }, 403);
       res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': 'inline',
         'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' });
       return createReadStream(path).pipe(res);
@@ -530,9 +560,13 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, process.env.HOST || '127.0.0.1', () => {
-  const address = server.address();
-  console.log(`Caderno em http://localhost:${typeof address === 'string' ? port : address.port}`);
+export const ready = new Promise((resolve, reject) => {
+  server.once('error', reject);
+  server.listen(port, process.env.HOST || '127.0.0.1', () => {
+    const address = server.address();
+    console.log(`Caderno em http://localhost:${typeof address === 'string' ? port : address.port}`);
+    resolve(address);
+  });
 });
 setImmediate(() => {
   const pending = db.prepare(`SELECT DISTINCT c.user_id FROM courses c JOIN moodle_connections m ON m.user_id=c.user_id
