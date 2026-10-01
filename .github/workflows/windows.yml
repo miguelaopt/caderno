@@ -51,6 +51,6 @@ jobs:
           $installer = (Get-ChildItem release/Caderno-*-Windows-x64.exe | Select-Object -First 1).FullName
           $files = @($installer, "$installer.blockmap", 'release/latest.yml')
           foreach ($file in $files) { if (-not (Test-Path $file)) { throw "Falta $file para as atualizações automáticas" } }
-          $flags = @('--generate-notes', '--title', 'Caderno ${{ github.ref_name }}')
+          $flags = @('--generate-notes', '--title', 'Caderno ${{ github.ref_name }}', '--notes', 'Code signing policy: https://github.com/miguelaopt/caderno#code-signing-policy')
           if ('${{ github.ref_name }}' -like '*-*') { $flags += '--prerelease' }
           gh release create '${{ github.ref_name }}' @files @flags

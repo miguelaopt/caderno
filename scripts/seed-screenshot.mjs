@@ -44,6 +44,10 @@ for (const [index, example] of examples.entries()) {
   if (index === 0) db.prepare('INSERT INTO study_log(id,user_id,file_id,studied_at,minutes,result) VALUES(?,?,?,?,?,?)')
     .run(id(), userId, file.id, now - 86400, 15, 'assim');
 }
+// Ativa os controlos de Explicações nas capturas. Não é uma chave válida e o script nunca pede IA.
+db.prepare('INSERT INTO ai_credentials(user_id,provider,key_enc,summary_model,explain_model,updated_at) VALUES(?,?,?,?,?,?)')
+  .run(userId, 'groq', 'dados-ficticios-sem-chave', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b', now);
+db.prepare('UPDATE preferences SET ai_consent_at=? WHERE user_id=?').run(now, userId);
 const session = newSession(db, userId);
 console.log(session.token);
 db.close();

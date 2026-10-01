@@ -56,7 +56,7 @@ try {
   await open('focus', 'Foco');
   await page.locator('.app-main').screenshot({ path: `${output}/foco.png` });
   await open('explain', 'Explicações');
-  await page.locator('.app-main').screenshot({ path: `${output}/explicacoes.png` });
+  await page.locator('.explain-layout').screenshot({ path: `${output}/explicacoes.png` });
   await open('settings', 'Definições');
   await page.locator('.panel', { has: page.getByRole('heading', { name: 'A tua chave de IA' }) }).screenshot({ path: `${output}/chave-ia.png` });
 } finally { await browser.close(); }

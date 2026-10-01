@@ -62,7 +62,7 @@
       </figure>
       <h3 class="lp-subhead">Para estudar</h3>
       <div class="lp-tools">
-        <article class="lp-tool lp-tool-w7"><img src="/screenshots/explicacoes.webp" alt="Ecrã Explicações com escolha de cadeira e PDF e abordagens como explicação simples ou método Feynman" loading="lazy" width="1400" height="1147">
+        <article class="lp-tool lp-tool-w7"><img src="/screenshots/explicacoes.webp" alt="Ecrã Explicações com seis formas de pedir uma explicação e resumo do PDF escolhido" loading="lazy" width="1400" height="1275">
           <div class="lp-tool-text"><h4>Explicações com fontes</h4><p>Pergunta sobre um PDF e recebe uma explicação com ligações às páginas usadas.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
         <article class="lp-tool lp-tool-w5"><img src="/screenshots/flashcards.webp" alt="Ecrã Flashcards com uma carta revelada e os botões Ainda não, Quase e Percebi" loading="lazy" width="1400" height="1091">
           <div class="lp-tool-text"><h4>Flashcards</h4><p>Revisão espaçada, com uma ou várias cadeiras no mesmo baralho.</p><span class="lp-req lp-req-ai">Usa a análise dos PDFs</span></div></article>
@@ -88,7 +88,7 @@
           <div class="lp-download-option"><h3>Pelo GitHub</h3><p>Escolhe a versão na página de releases, com as notas de cada uma e as anteriores.</p>
             <a class="button" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a></div>
         </div>
-        <p class="lp-small">O ficheiro vem sempre das releases do GitHub. O instalador ainda não tem assinatura de código, por isso o Windows pode mostrar um aviso de editor desconhecido. <a href="https://github.com/miguelaopt/caderno/blob/main/docs/DESKTOP.md">Instruções de instalação</a>.</p>
+        <p class="lp-small">O ficheiro vem sempre das releases do GitHub. O instalador ainda não tem assinatura de código, por isso o Windows pode mostrar um aviso de editor desconhecido. <a href="https://github.com/miguelaopt/caderno/blob/main/docs/DESKTOP.md">Instruções de instalação</a> · <a href="https://github.com/miguelaopt/caderno#code-signing-policy">Code signing policy</a>.</p>
         <dl class="lp-facts">
           <div><dt>Materiais</dt><dd>Em Documentos\Caderno\Materiais. Se o Windows redirecionar Documentos para o OneDrive, o Caderno usa essa pasta.</dd></div>
           <div><dt>Sem internet</dt><dd>Os PDFs já importados abrem no visualizador da aplicação. Resumos, perguntas e flashcards já criados continuam disponíveis.</dd></div>
@@ -121,7 +121,7 @@
           <li><strong>Pedes o resumo</strong> Num PDF ou para os PDFs pendentes. Importar ficheiros ou sincronizar o Moodle nunca inicia uma análise.</li>
         </ol>
         <p class="lp-small">Cada pedido vai diretamente do teu computador para o fornecedor, que o pode cobrar na tua conta. A chave fica cifrada no computador e não aparece na exportação de dados.</p></div>
-      <figure class="lp-settings"><img class="lp-shot" src="/screenshots/chave-ia.webp" alt="Secção A tua chave de IA nas Definições, com fornecedor, chave de API, modelos para resumos e explicações e URL base para serviços compatíveis" loading="lazy" width="930" height="1244">
+      <figure class="lp-settings"><img class="lp-shot" src="/screenshots/chave-ia.webp" alt="Secção A tua chave de IA nas Definições, com o fornecedor Groq e modelos sugeridos" loading="lazy" width="930" height="1874">
         <figcaption>Definições, secção «A tua chave de IA».</figcaption></figure>
     </div>
   </section>
@@ -131,11 +131,11 @@
     <div class="lp-body lp-open">
       <div><h2 id="codigo-title">Código aberto de verdade</h2>
         <p class="lp-intro">O Caderno é publicado sob a licença MIT. Podes ler o código, compilar a tua própria versão, adaptá-la e propor alterações.</p>
-        <ul class="lp-links"><li><a href="https://github.com/miguelaopt/caderno">Repositório no GitHub</a></li><li><a href="https://github.com/miguelaopt/caderno#readme">README</a></li><li><a href="https://github.com/miguelaopt/caderno/issues">Issues</a></li><li><a href="https://github.com/miguelaopt/caderno/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a></li></ul></div>
+        <ul class="lp-links"><li><a href="https://github.com/miguelaopt/caderno">Repositório no GitHub</a></li><li><a href="https://github.com/miguelaopt/caderno#readme">README</a></li><li><a href="https://github.com/miguelaopt/caderno#code-signing-policy">Code signing policy</a></li><li><a href="https://github.com/miguelaopt/caderno/issues">Issues</a></li><li><a href="https://github.com/miguelaopt/caderno/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a></li></ul></div>
       <figure class="lp-code"><pre><code>npm ci
 npm run desktop:dev</code></pre><figcaption>Requer Node 24. O segundo comando abre a aplicação a partir do código.</figcaption></figure>
       <div class="lp-control"><h3>Sem conta, sem servidor</h3>
-        <p>Não há nada para registar. Os ficheiros, o progresso e as chaves ficam no teu computador; só o Moodle e o fornecedor de IA que escolheres recebem pedidos.</p></div>
+        <p>Não há nada para registar. Os ficheiros, o progresso e as chaves ficam no teu computador; a aplicação comunica com o Moodle, o fornecedor de IA que escolheres e o GitHub para procurar atualizações.</p></div>
       <div class="lp-control"><h3>O que controlas</h3>
         <p>Exportar os dados, apagar tudo, desligar o Moodle, escolher o fornecedor de IA e retirar a autorização de análise.</p></div>
     </div>

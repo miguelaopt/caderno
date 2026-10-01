@@ -6,9 +6,21 @@ Não há contas nem servidor: a aplicação usa um perfil local e guarda tudo no
 
 ## Descarregar
 
-O site (pasta [`site/`](site/)) liga sempre ao instalador mais recente das [releases do GitHub](https://github.com/miguelaopt/caderno/releases), que também podem ser usadas diretamente. Instruções de instalação, cópias de segurança e compilação: [docs/DESKTOP.md](docs/DESKTOP.md).
+O [site do Caderno](https://caderno.me) (pasta [`site/`](site/)) liga sempre ao instalador mais recente das [releases do GitHub](https://github.com/miguelaopt/caderno/releases), que também podem ser usadas diretamente. Instruções de instalação, cópias de segurança e compilação: [docs/DESKTOP.md](docs/DESKTOP.md).
 
 O instalador ainda não está assinado; o Windows pode mostrar um aviso de editor desconhecido.
+
+## Code signing policy
+
+Esta política aplica-se às futuras versões assinadas. A versão 0.3.1 e as anteriores ainda não têm assinatura de código.
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- **Autor e responsável pelo código:** [Miguel Ferreira](https://github.com/miguelaopt).
+- **Revisor de contribuições externas:** [Miguel Ferreira](https://github.com/miguelaopt).
+- **Aprovador de cada pedido de assinatura:** [Miguel Ferreira](https://github.com/miguelaopt).
+
+As versões são compiladas a partir do código público no [GitHub Actions](.github/workflows/windows.yml). Cada pedido de assinatura de uma release terá aprovação manual. A [política de privacidade](https://caderno.me/privacidade) explica quando a aplicação comunica com o Moodle, com o fornecedor de IA escolhido e com o GitHub, e identifica os serviços externos usados por ligações do site e da aplicação.
 
 ## Onde ficam os dados
 

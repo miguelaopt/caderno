@@ -1,18 +1,28 @@
 # Lançar o Caderno ao público
 
-O que falta para divulgar o Caderno fora do círculo de colegas, por ordem. Os pontos 1 a 4 bloqueiam o lançamento; os restantes podem acontecer na primeira semana.
+O que falta para divulgar o Caderno fora do círculo de colegas, por ordem. O site e o instalador podem continuar públicos na versão 0.3.1; a assinatura e os testes externos bloqueiam a versão 1.0.
 
-Estado a 2026-10-01: versão 0.3.0 publicada, atualizações automáticas a funcionar, site estático na Vercel.
+Estado a 2026-10-01: versão 0.3.1 publicada, atualizações automáticas a funcionar, site estático na Vercel. A etiqueta `problema` já existe no GitHub. Esta atualização do site inclui nove capturas com dados fictícios e a política de assinatura.
+
+## Quando usar 1.0
+
+Esta atualização do site e da documentação não altera o instalador: manter `v0.3.1` como versão pública atual. Reservar `v1.0.0` para uma release que cumpra os seguintes critérios:
+
+1. Instalador e executável assinados, com instalação e atualização automática verificadas num Windows real.
+2. Duas ou três pessoas externas conseguem instalar, configurar uma cadeira e chegar ao primeiro plano sem ajuda, sem problemas bloqueantes por resolver.
+3. A página de download, a privacidade e as notas da release descrevem corretamente a versão entregue.
+
+Se surgir uma correção antes disso, publicar uma nova versão `0.3.x` com a alteração e respetivas notas.
 
 ## Lista
 
-- [ ] **1. Criar a conta Ko-fi `miguelaopt`.** O botão «Paga-me um café» do site e da app já aponta para `https://ko-fi.com/miguelaopt`. Até a conta existir, o link dá erro. Se escolheres outro nome, muda-o em `web/product.js` (`links.kofi`) e em `site/index.html`.
-- [ ] **2. Assinar o instalador com a SignPath Foundation.** Sem assinatura, o Windows mostra «O Windows protegeu o computador» e muita gente desiste. Passo a passo abaixo.
+- [x] **1. Confirmar a conta Ko-fi `miguelaopt`.** O proprietário confirmou que está pronta; o botão «Paga-me um café» do site e da app aponta para `https://ko-fi.com/miguelaopt`.
+- [ ] **2. Assinar o instalador com a SignPath Foundation.** A política de assinatura faz parte desta atualização. Falta candidatar o projeto e integrar a assinatura após aprovação. Passo a passo abaixo.
 - [ ] **3. Testar com duas ou três pessoas de fora.** Ver [Teste com colegas](#teste-com-colegas).
-- [ ] **4. Domínio.** Ver [Domínio](#domínio).
-- [ ] **5. Criar a etiqueta `problema` no GitHub** (Issues → Labels → New label). O formulário «Reportar um problema» aplica-a; sem ela, a issue fica sem etiqueta.
-- [ ] **6. Atualizar as capturas do site** com as Explicações novas e o painel da Groq: `node scripts/seed-screenshot.mjs` e `node scripts/capture-screenshots.mjs` (instruções no topo de cada script).
-- [ ] **7. Rever `site/privacidade.html`**: acrescentar que o Ko-fi e o GitHub são serviços externos com as suas próprias políticas.
+- [x] **4. Domínio `caderno.me`.** O proprietário está a terminar a configuração; `https://caderno.me` e `/privacidade` já respondem por HTTPS e redirecionam para `www.caderno.me`.
+- [x] **5. Criar a etiqueta `problema` no GitHub.** Confirmada na API do repositório; o formulário «Reportar um problema» aplica-a.
+- [x] **6. Atualizar as capturas do site** com as Explicações novas e o painel da Groq. As nove imagens foram recriadas a partir de dados fictícios com `scripts/seed-screenshot.mjs` e `scripts/capture-screenshots.mjs`.
+- [x] **7. Rever `site/privacidade.html`**: acrescentadas as ligações externas para o Ko-fi e o GitHub e a consulta de atualizações.
 - [ ] **8. Falar com os serviços de informática** antes de divulgar a uma escola inteira. O Caderno usa o mesmo serviço que a app móvel oficial do Moodle; algumas instituições preferem saber.
 - [ ] **9. Depois de lançar:** ver as Issues duas vezes por semana e escrever notas de versão curtas em cada release.
 
@@ -29,35 +39,32 @@ Limite conhecido: quem pagar a Groq também recebe os pedidos pequenos. Se algu�
 
 ## SignPath Foundation, passo a passo
 
-A [SignPath Foundation](https://signpath.org) assina gratuitamente projetos de código aberto com um certificado em nome da fundação. O Caderno cumpre as condições principais: licença MIT (aprovada pela OSI), sem código proprietário, releases públicas, compilado no GitHub Actions a partir do código do repositório.
+A [SignPath Foundation](https://signpath.org) assina gratuitamente projetos de código aberto com um certificado em nome da fundação. O Caderno já tem licença MIT, releases públicas e build no GitHub Actions. A aceitação depende da avaliação da SignPath, incluindo a reputação verificável do projeto.
 
 ### 1. Preparar o repositório
 
 1. **Ativar a autenticação de dois fatores** no GitHub (obrigatório para todos os membros da equipa, também na SignPath).
-2. **Publicar uma política de assinatura de código.** Acrescentar ao `README.md` uma secção «Code signing policy» com:
-   - a frase exigida: «Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org)»;
-   - os papéis: Miguel Ferreira como autor, revisor e aprovador (projeto de uma pessoa);
-   - a declaração de privacidade: o programa só comunica com o Moodle e com o fornecedor de IA que a pessoa escolher, e só quando ela pede.
+2. **Publicar a política de assinatura de código.** A secção «Code signing policy» está no `README.md`, ligada na página inicial e na secção de download do site. Inclui a frase exigida, os papéis da equipa e a ligação à política de privacidade. Confirmar estas ligações depois de publicar a atualização. O workflow acrescentará a ligação às notas das próximas releases; acrescentá-la também à descrição da release pública atual antes da candidatura.
 3. **Metadados do executável.** O electron-builder já preenche o nome do produto e a versão; confirmar no `Caderno.exe` (Propriedades → Detalhes) que aparecem «Caderno» e a versão certa.
+4. **Esclarecer a consulta automática de atualizações.** A app instalada contacta o GitHub ao abrir. Confirmar com a SignPath se este comportamento exige mostrar a política de privacidade no instalador e oferecer uma opção para desativar a consulta, segundo as condições de privacidade da fundação.
 
 ### 2. Candidatura
 
-1. Em [signpath.org](https://signpath.org), carregar em «Apply» e preencher com o link do repositório, o link das releases e a política de assinatura.
+1. Em [signpath.org/apply.html](https://signpath.org/apply.html), preencher a candidatura com o [repositório](https://github.com/miguelaopt/caderno), as [releases](https://github.com/miguelaopt/caderno/releases), o [site](https://caderno.me), a [política de assinatura](https://github.com/miguelaopt/caderno#code-signing-policy) e a [política de privacidade](https://caderno.me/privacidade), depois de as alterações estarem publicadas.
 2. Esperar pela aprovação. A SignPath verifica o projeto manualmente; pode demorar algumas semanas.
-3. Depois de aprovado, recebes uma organização no [SignPath.io](https://app.signpath.io) com um projeto, uma política de assinatura (`release-signing`) e uma configuração de artefactos.
+3. Depois de aprovado, configurar no [SignPath.io](https://app.signpath.io) uma organização, um projeto, uma política de assinatura e a configuração dos artefactos. Guardar os identificadores e o token da API para o workflow; os valores concretos só são conhecidos nessa fase.
 
 ### 3. Ligar ao GitHub Actions
 
 A assinatura tem de acontecer **antes** de o electron-builder calcular o `latest.yml`: as atualizações automáticas verificam o SHA-512 do instalador, e um ficheiro assinado depois teria outro hash.
 
-Abordagem recomendada, a confirmar com a SignPath durante a integração:
+Depois da aprovação, definir com a SignPath a configuração que assina o executável e o instalador:
 
-1. Em `.github/workflows/windows.yml`, compilar só a pasta da app: `npx electron-builder --win --x64 --dir`.
-2. Enviar `release/win-unpacked/Caderno.exe` para assinar com a action oficial `signpath/github-action-submit-signing-request` (com `wait-for-completion: true`) e substituir o ficheiro pelo assinado.
-3. Criar o instalador a partir da pasta já assinada: `npx electron-builder --win nsis --x64 --prepackaged release/win-unpacked --publish never`.
-4. Assinar o instalador da mesma forma e voltar a gerar o `latest.yml` e o `.blockmap` com o hash do ficheiro assinado. Em alternativa, a SignPath pode ser chamada a partir do gancho de assinatura do electron-builder (`win.signtoolOptions.sign`), que corre antes do cálculo dos hashes. Escolhe a via que a SignPath aceitar como origem verificada.
-5. Guardar o token da SignPath como segredo do repositório (`SIGNPATH_API_TOKEN`) e os IDs da organização e do projeto como variáveis.
-6. Cada release passa a pedir a tua aprovação na SignPath antes de assinar (és o «approver»).
+1. Ligar o GitHub.com à organização e instalar a SignPath GitHub App no repositório. O build tem de correr em agentes alojados pelo GitHub.
+2. No workflow Windows, carregar o artefacto a assinar com `actions/upload-artifact@v4` ou superior. A action `signpath/github-action-submit-signing-request@v3` recebe o `artifact-id` desse passo, além do token, dos identificadores da organização e do projeto e da política de assinatura. Usar `wait-for-completion: true` e descarregar o artefacto assinado.
+3. Integrar a assinatura no empacotamento do electron-builder para que `Caderno.exe` e o instalador final sejam assinados antes de gerar `latest.yml` e o `.blockmap`. Confirmar o fluxo com a SignPath; assinar o instalador depois de gerar esses ficheiros invalidaria o hash das atualizações.
+4. Guardar o token como segredo do repositório (`SIGNPATH_API_TOKEN`). Confirmar a assinatura dos ficheiros no Windows e testar instalação e atualização a partir de uma versão anterior antes de publicar.
+5. Aprovar manualmente cada pedido de assinatura na SignPath.
 
 Quando o primeiro instalador assinado sair, retirar do site e do `docs/DESKTOP.md` a frase sobre o aviso de editor desconhecido. O SmartScreen ainda pode avisar nas primeiras semanas, até o certificado ganhar reputação.
 
@@ -77,14 +84,7 @@ Cada problema vira uma issue com a etiqueta `problema`.
 
 ## Domínio
 
-| Opção | Custo | Nota |
-|---|---|---|
-| `caderno.me` | Grátis no 1.º ano com o [GitHub Student Pack](https://education.github.com/pack), depois cerca de 20 $/ano | Livre a 2026-10-01. Pedir o pack com o email da escola e registar em nc.me. Recomendado. |
-| `caderno.app` | Cerca de 12–15 €/ano (Cloudflare, Porkbun) | Livre a 2026-10-01. |
-| `ocaderno.pt`, `meucaderno.pt` | A Amen faz promoções a 1 € no 1.º ano | A renovação na Amen custa 39,50 € + IVA/ano; noutros registadores o `.pt` fica por cerca de 10–15 €. |
-| `<nome>.vercel.app` | Grátis | `caderno.vercel.app` e `caderno-site.vercel.app` já são de outras pessoas. |
-
-Ligar o domínio à Vercel: Project → Settings → Domains → Add, e criar no registador os registos DNS que a Vercel indicar. Depois atualizar os links do `README.md`.
+O domínio escolhido é [caderno.me](https://caderno.me), com redirecionamento para `www.caderno.me`. Em 2026-10-01, a página inicial e `/privacidade` responderam com HTTP 200 por HTTPS. O proprietário está a terminar a configuração. O `README.md` já usa o domínio.
 
 ## Fora do lançamento
 

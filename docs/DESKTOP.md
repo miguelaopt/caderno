@@ -6,7 +6,7 @@ Os PDFs já guardados abrem sem internet. Outros ficheiros ficam na pasta Docume
 
 ## Instalar
 
-Descarrega o instalador mais recente em [Releases](https://github.com/miguelaopt/caderno/releases/latest) (ficheiro `Caderno-<versão>-Windows-x64.exe`), executa-o e escolhe a pasta de instalação. É um instalador x64 sem assinatura de código; o Windows pode apresentar um aviso de editor desconhecido. O código e o processo de build estão neste repositório.
+Descarrega o instalador mais recente em [Releases](https://github.com/miguelaopt/caderno/releases/latest) (ficheiro `Caderno-<versão>-Windows-x64.exe`), executa-o e escolhe a pasta de instalação. É um instalador x64 sem assinatura de código; o Windows pode apresentar um aviso de editor desconhecido. O código, a [Code signing policy](../README.md#code-signing-policy) e o processo de build estão neste repositório.
 
 Ao abrir pela primeira vez, um guia de início ajuda a juntar as cadeiras, a definir o tempo de estudo e, se quiseres, a configurar a IA; podes reabri-lo nas Definições. Para ligar o Moodle, indica o endereço HTTPS da plataforma em **Cadeiras → Moodle**, guarda e introduz as tuas credenciais. Também podes criar cadeiras manuais e enviar materiais sem configurar o Moodle. Em **Definições**, podes adicionar a tua própria chave de IA; é opcional. Anthropic, OpenAI, DeepSeek e Groq têm ligação direta. Para outro fornecedor que use Chat Completions, indica a URL base HTTPS e os IDs dos modelos.
 
