@@ -157,6 +157,20 @@ try {
     headers: { 'content-type': 'application/pdf', 'x-filename': 'aula.pdf' }, bytes: Buffer.from('%PDF-1.4\n%%EOF') });
   assert.equal(upload.status, 201);
   const fileId = (await upload.json()).id;
+  const officeBytes = Buffer.from('PK\x03\x04documento de teste');
+  const officeUpload = await request(`/api/upload?course=${courseId}`, { cookie: alice, method: 'POST',
+    headers: { 'content-type': 'application/octet-stream', 'x-filename': 'slides.docx' }, bytes: officeBytes });
+  assert.equal(officeUpload.status, 201);
+  const officeId = (await officeUpload.json()).id;
+  const officeDetail = await (await request(`/api/file?id=${officeId}`, { cookie: alice })).json();
+  assert.equal(officeDetail.text_status, 'sem-extracao');
+  const officeDownload = await request(`/material?id=${officeId}`, { cookie: alice });
+  assert.equal(officeDownload.status, 200);
+  assert.match(officeDownload.headers.get('content-disposition'), /^attachment;/);
+  assert.deepEqual(Buffer.from(await officeDownload.arrayBuffer()), officeBytes);
+  assert.equal((await request(`/material?id=${officeId}`, { cookie: bob })).status, 404);
+  assert.equal((await request(`/api/upload?course=${courseId}`, { cookie: alice, method: 'POST',
+    headers: { 'content-type': 'application/octet-stream', 'x-filename': 'programa.exe' }, bytes: officeBytes })).status, 400);
   assert.equal((await request('/api/favorite', { cookie: bob, method: 'POST', json: { fileId, favorite: true } })).status, 404);
   assert.equal((await request('/api/favorite', { cookie: alice, method: 'POST', json: { fileId, favorite: true } })).status, 200);
   assert.equal((await request(`/material?id=${fileId}`, { cookie: alice })).status, 200);
@@ -184,9 +198,9 @@ try {
   assert.match(importedDetail.text_preview, /Analise de Sistemas/);
   assert.equal((await request('/api/practice', { cookie: bob })).status, 200);
   const aliceState = await (await request('/api/state', { cookie: alice })).json();
-  assert.equal(aliceState.files.length, 1);
-  assert.equal(aliceState.files[0].favorite, 1);
-  assert.equal(aliceState.plan.blocks.length, 1, 'um PDF sem resumo ainda entra no plano');
+  assert.equal(aliceState.files.length, 2);
+  assert.equal(aliceState.files.find((file) => file.id === fileId).favorite, 1);
+  assert.ok(aliceState.plan.blocks.some((block) => block.id === fileId), 'um PDF sem resumo ainda entra no plano');
   assert.equal(aliceState.plan.forecast[0].minutes,
     aliceState.plan.blocks.reduce((sum, block) => sum + block.minutes, 0), 'a prévia de hoje coincide com o plano');
   assert.equal((await request(`/api/file?id=${fileId}`, { cookie: bob })).status, 404);

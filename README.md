@@ -1,6 +1,6 @@
 # Caderno
 
-O Caderno é uma aplicação de estudo para organizar PDFs, acompanhar prazos e estudar com apoio opcional de IA. Funciona no browser ou como aplicação Windows, com Moodle ou apenas com PDFs enviados manualmente. O código é publicado sob a licença MIT.
+O Caderno é uma aplicação de estudo para organizar materiais, acompanhar prazos e estudar com apoio opcional de IA. Funciona no browser ou como aplicação Windows, com Moodle ou com ficheiros enviados manualmente. O código é publicado sob a licença MIT.
 
 Cada pessoa pode configurar a sua própria chave de API nas Definições. A instalação open source não cobra uma subscrição nem limita o número de cadeiras. A integração comercial antiga continua disponível apenas quando o operador ativa `ENABLE_HOSTED_BILLING=true`.
 
@@ -8,7 +8,7 @@ Cada pessoa pode configurar a sua própria chave de API nas Definições. A inst
 
 ## Aplicação Windows
 
-[Descarregar o instalador Windows x64](https://github.com/miguelaopt/caderno/releases/download/v0.1.0-preview/Caderno-0.1.0-Windows-x64.exe) · [Instruções para Windows](docs/DESKTOP.md). A aplicação guarda a base de dados e a chave local em `%APPDATA%\Caderno\Dados` e os PDFs em `Documentos\Caderno\Materiais`, separados por conta e cadeira. Depois de importados, os PDFs abrem offline no visualizador da aplicação. A sincronização Moodle e os pedidos à IA precisam de internet. O instalador atual não está assinado; o workflow Windows publica um artefacto por build.
+[Descarregar o instalador Windows x64](https://github.com/miguelaopt/caderno/releases/download/v0.1.1-preview/Caderno-0.1.1-Windows-x64.exe) · [Instruções para Windows](docs/DESKTOP.md). A aplicação guarda a base de dados e a chave local em `%APPDATA%\Caderno\Dados` e os materiais em `Documentos\Caderno\Materiais`, separados por conta e cadeira. Depois de importados, os PDFs abrem offline no visualizador da aplicação; outros formatos podem ser abertos com programas instalados no computador. A sincronização Moodle e os pedidos à IA precisam de internet. O instalador atual não está assinado; o workflow Windows publica um artefacto por build.
 
 ## Requisitos
 
@@ -46,7 +46,7 @@ Com uma chave pessoal, os resumos só são criados quando escolhes **Criar resum
 
 ## Ligação ao Moodle
 
-O utilizador introduz o utilizador e a palavra-passe Moodle na app. O servidor envia-os a `<MOODLE_URL>/login/token.php` para obter uma chave do serviço `MOODLE_SERVICE` (por defeito `moodle_mobile_app`). A palavra-passe não é guardada. A ligação direta pode falhar em contas com SSO ou quando o serviço móvel está desativado. O servidor valida `core_webservice_get_site_info`, verifica as funções anunciadas e só então lê as cadeiras. Para as cadeiras selecionadas usa `core_course_get_contents`; apenas PDFs são descarregados. Na web, cada instalação do Caderno liga-se a **um Moodle configurado pelo operador** em `MOODLE_URL`. Na app Windows, o utilizador configura esse endereço em Cadeiras. A escolha de vários servidores por conta ainda não está disponível.
+O utilizador introduz o utilizador e a palavra-passe Moodle na app. O servidor envia-os a `<MOODLE_URL>/login/token.php` para obter uma chave do serviço `MOODLE_SERVICE` (por defeito `moodle_mobile_app`). A palavra-passe não é guardada. A ligação direta pode falhar em contas com SSO ou quando o serviço móvel está desativado. O servidor valida `core_webservice_get_site_info`, verifica as funções anunciadas e só então lê as cadeiras. Para as cadeiras selecionadas usa `core_course_get_contents` e descarrega ficheiros nos formatos suportados. Na web, cada instalação do Caderno liga-se a **um Moodle configurado pelo operador** em `MOODLE_URL`. Na app Windows, o utilizador configura esse endereço em Cadeiras. A escolha de vários servidores por conta ainda não está disponível.
 
 O token fica cifrado com AES-256-GCM. Em desenvolvimento, a aplicação cria `data/product.key` com permissão 0600. Em produção, define `TOKEN_ENCRYPTION_KEY` com 32 bytes aleatórios em hexadecimal e mantém a chave estável em backups seguros. Perder a chave exige que os alunos voltem a ligar o Moodle. Desligar apaga a cópia local do token; a revogação no servidor Moodle é feita pelo aluno em **Chaves de segurança**, pois a função de revogação não está exposta por este serviço.
 
@@ -54,7 +54,7 @@ O token fica cifrado com AES-256-GCM. Em desenvolvimento, a aplicação cria `da
 
 ## Dados
 
-`data/product.db` e `data/product-files/` são privados e ignorados pelo Git. Contas, cadeiras, ficheiros, prazos e sessões têm `user_id`. Cada pedido de PDF exige sessão e propriedade do ficheiro. A exportação inclui os dados da conta e os PDFs em base64; a eliminação remove a conta e os ficheiros. O sistema pessoal antigo usa `data/estudo.db` e `material/` e não é migrado para contas novas.
+`data/product.db` e `data/product-files/` são privados e ignorados pelo Git. Contas, cadeiras, ficheiros, prazos e sessões têm `user_id`. Cada pedido de material exige sessão e propriedade do ficheiro. A exportação inclui os dados da conta e os ficheiros em base64; a eliminação remove a conta e os ficheiros. O sistema pessoal antigo usa `data/estudo.db` e `material/` e não é migrado para contas novas.
 
 ## Variáveis de ambiente
 
@@ -83,7 +83,7 @@ O ecrã Hoje mostra ficheiros recentes, prazos e blocos de estudo. O plano funci
 
 Os menus de estudo incluem **Explicações** com perguntas sobre um PDF e ligações às páginas usadas, **Flashcards** com revisão espaçada e seleção de uma ou várias cadeiras, **Treino** de recuperação ativa com autoavaliação, **Folha de revisão** por cadeira, **Simulado** de até dez perguntas com 20 minutos e **Foco** com blocos de tempo associados a um material. Resumos e perguntas gerados pela IA alimentam Flashcards, Treino, Folha de revisão e Simulado. O ecrã Explicações mostra a fila de PDFs por analisar e permite voltar a iniciá-la. As respostas do Simulado ficam apenas na sessão; a autoavaliação entra no progresso.
 
-Na biblioteca, a pesquisa filtra nomes e resumos sem distinguir acentos; também podes guardar PDFs nos favoritos e mostrar apenas esses ficheiros. Favoritos são privados da conta e não geram pedidos de IA.
+Na biblioteca, a pesquisa filtra nomes e resumos sem distinguir acentos; também podes guardar materiais nos favoritos e mostrar apenas esses ficheiros. Favoritos são privados da conta e não geram pedidos de IA. São aceites PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, DOC, PPT, XLS, TXT, MD, CSV, RTF, EPUB e ZIP, até 20 MB por ficheiro. Os formatos além de PDF ficam guardados e podem ser descarregados; ainda não têm extração de texto, resumo ou visualizador integrado.
 
 A análise por IA está desligada até o aluno a permitir nas Definições ou em Explicações. Só é feita com texto extraível que não foi classificado como sensível. Sem chave de IA, ficheiros, plano e progresso continuam disponíveis. O email diário também é opcional e só aparece depois de configurar SMTP; o processo do servidor tem de permanecer ligado para executar o agendamento.
 

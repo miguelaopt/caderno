@@ -5,7 +5,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import { openProductDb, PRODUCT_FILES_DIR } from '../lib/product-db.mjs';
 import { id, hash, passwordHash, passwordMatches, emailCode, emailCodeMatches, encryptToken, newSession, sessionUser, sessionCookie } from '../lib/product-security.mjs';
-import { assertFunctions, storeFile, syncUser } from '../lib/product-sync.mjs';
+import { assertFunctions, storeFile, supportedDocument, syncUser } from '../lib/product-sync.mjs';
 import { dailyPlan } from '../lib/product-plan.mjs';
 import { analyzeFile, askCourse, remaining, priceRates } from '../lib/product-ai.mjs';
 import { aiSettings, aiConfigured, saveAiSettings, deleteAiSettings } from '../lib/product-ai-provider.mjs';
@@ -114,7 +114,7 @@ async function analyzePending(userId, manual = false) {
 function state(user) {
   const plan = effectivePlan(user);
   const courses = db.prepare('SELECT id,name,shortname,selected,source,exam_at,last_synced_at FROM courses WHERE user_id=? ORDER BY selected DESC,name').all(user.id);
-  const files = db.prepare(`SELECT f.id,f.course_id,f.filename,f.size,f.text_status,length(f.text) AS text_chars,
+  const files = db.prepare(`SELECT f.id,f.course_id,f.filename,f.mime,f.size,f.text_status,length(f.text) AS text_chars,
     json_array_length(f.pages_json) AS page_count,f.source,f.first_seen_at,f.changed_at,f.favorite,a.summary,a.topics_json
     FROM files f LEFT JOIN analyses a ON a.file_id=f.id AND a.hash=f.hash WHERE f.user_id=? ORDER BY f.changed_at DESC`).all(user.id);
   const deadlines = db.prepare('SELECT id,course_id,title,kind,due_at,source FROM deadlines WHERE user_id=? AND due_at>? ORDER BY due_at LIMIT 30').all(user.id, now());
@@ -375,7 +375,7 @@ const routes = {
   },
   'GET /api/file': async (req, res, url) => {
     const user = requireUser(req);
-    const file = db.prepare(`SELECT f.id,f.course_id,f.filename,f.text_status,f.size,f.source,f.favorite,
+    const file = db.prepare(`SELECT f.id,f.course_id,f.filename,f.mime,f.text_status,f.size,f.source,f.favorite,
       substr(f.text,1,8000) AS text_preview,json_array_length(f.pages_json) AS page_count,
       a.summary,a.topics_json,a.questions_json
       FROM files f LEFT JOIN analyses a ON a.file_id=f.id AND a.hash=f.hash WHERE f.id=? AND f.user_id=?`)
@@ -479,10 +479,11 @@ const routes = {
     const user = requireUser(req);
     const course = ownCourse(user.id, url.searchParams.get('course'));
     if (!course.selected) throw new Error('Seleciona primeiro esta cadeira.');
-    if (req.headers['content-type'] !== 'application/pdf') throw new Error('Envia um PDF.');
+    if (!['application/pdf', 'application/octet-stream'].includes(req.headers['content-type']))
+      throw new Error('Formato do pedido inválido.');
     const rawName = decodeURIComponent(req.headers['x-filename'] || 'Material.pdf');
     const filename = rawName.replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 160);
-    if (!/\.pdf$/i.test(filename)) throw new Error('O nome do ficheiro deve terminar em .pdf.');
+    if (!supportedDocument(filename)) throw new Error('Formato não suportado. Usa PDF, Office, OpenDocument, texto, EPUB ou ZIP.');
     const bytes = await body(req, 20 * 1024 * 1024);
     const result = await storeFile(db, { userId: user.id, courseId: course.id, filename, source: 'upload', bytes });
     send(res, { ok: true, ...result }, 201);
@@ -528,14 +529,17 @@ export const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/material') {
       const user = requireUser(req);
-      const file = db.prepare('SELECT path FROM files WHERE id=? AND user_id=?').get(url.searchParams.get('id'), user.id);
+      const file = db.prepare('SELECT path,filename,mime FROM files WHERE id=? AND user_id=?').get(url.searchParams.get('id'), user.id);
       if (!file?.path) return send(res, { erro: 'Ficheiro não encontrado.' }, 404);
       const root = resolve(PRODUCT_FILES_DIR, user.id);
       const path = resolve(String(file.path));
       const inside = relative(root, path);
       if (!inside || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside))
         return send(res, { erro: 'Ficheiro indisponível.' }, 403);
-      res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': 'inline',
+      const pdf = file.mime === 'application/pdf';
+      const encodedName = encodeURIComponent(String(file.filename)).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+      res.writeHead(200, { 'content-type': pdf ? 'application/pdf' : 'application/octet-stream',
+        'content-disposition': `${pdf ? 'inline' : 'attachment'}; filename*=UTF-8''${encodedName}`,
         'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' });
       return createReadStream(path).pipe(res);
     }

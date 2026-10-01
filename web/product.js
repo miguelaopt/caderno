@@ -137,10 +137,12 @@ function shell(content) {
 }
 
 const courseName = (id) => state.courses.find((course) => course.id === id)?.name || 'Cadeira';
+const isPdf = (file) => file.mime === 'application/pdf' || /\.pdf$/i.test(file.filename || '');
 const materialStatus = (file) => file.text_status === 'ok'
   ? `${file.page_count || 0} páginas de texto extraído${file.summary ? ' · resumo pronto' : ' · resumo por criar'}`
   : file.text_status === 'vazio' ? 'PDF sem texto selecionável; pode precisar de OCR'
     : file.text_status === 'privado' ? 'Conteúdo sensível; excluído da IA'
+      : file.text_status === 'sem-extracao' ? 'Guardado · análise por IA disponível para PDF'
       : 'Não foi possível extrair o texto; tenta sincronizar novamente';
 
 function today() {
@@ -150,19 +152,19 @@ function today() {
   const plan = state.plan;
   shell(`<div class="topline"><div><span class="eyebrow">${new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</span><h1>Hoje</h1>
     <p class="muted">Um plano simples para avançares, ao teu ritmo.</p></div><button data-action="sync" ${!state.connection ? 'disabled' : ''}>Sincronizar</button></div>
-    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar PDFs do Moodle e a extrair o texto. Os materiais aparecem automaticamente quando estiverem prontos.</div>' : ''}
+    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar materiais do Moodle e a extrair texto dos PDFs. Os materiais aparecem automaticamente quando estiverem prontos.</div>' : ''}
     ${state.connection?.last_error ? `<div class="notice error" role="alert">${esc(state.connection.last_error)}</div>` : ''}
     ${state.connection && selected.length && !state.files.length && state.sync?.status !== 'running' ? '<div class="notice"><strong>As cadeiras já estão ligadas, mas ainda não há PDFs importados.</strong><p>Inicia a sincronização para trazer os materiais do Moodle.</p><button class="primary" data-action="sync">Importar PDFs</button></div>' : ''}
     ${!selected.length ? `<div class="notice"><h2>Começa por uma cadeira</h2><p>Liga o Moodle ou cria uma cadeira para enviares PDFs.</p><button class="primary" data-screen="courses">Escolher cadeira</button></div>` : ''}
     <div class="two today-grid" style="margin-top:24px"><section class="card"><div class="topline" style="margin-bottom:16px"><h2>O que mudou</h2>${recent.length ? '<button data-action="seen">Marcar como visto</button>' : ''}</div>${recent.length ? recent.map((file) => `<div class="item">
       <small>${esc(courseName(file.course_id))} · ${fmt(file.changed_at)}</small><div><a href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${esc(file.filename)}</a></div>
-      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'vazio' ? 'PDF sem texto selecionável.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : '<div class="empty">Ainda não há alterações recentes.</div>'}</section>
+      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'vazio' ? 'PDF sem texto selecionável.' : file.text_status === 'sem-extracao' ? 'Documento guardado para consulta.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : '<div class="empty">Ainda não há alterações recentes.</div>'}</section>
       <section class="stack"><div class="card"><h2>Próximos prazos</h2>${upcoming.length ? upcoming.map((d) => `<div class="item"><small>${esc(courseName(d.course_id))} · ${fmt(d.due_at)}</small><div>${esc(d.title)}</div></div>`).join('') : '<div class="empty">Ainda não há prazos registados.</div>'}</div>
       <div class="card"><h2>Plano de hoje</h2><p class="muted">${plan.studiedToday} min feitos · ${plan.minutes} min disponíveis hoje · ${plan.completed}/${plan.totalMaterials} materiais em dia</p>
       ${plan.blocks.length ? plan.blocks.map((block) => `<div class="item"><small>${esc(block.course)} · ${block.minutes} min · ${block.state === 'a-rever' ? 'revisão' : 'estudo'}</small>
         <div><button data-file="${block.id}" style="border:0;padding:0;text-align:left;font-weight:700">${esc(block.title)}</button></div>
         <p class="muted">${esc(block.summary || (block.questions.length ? `Experimenta: ${block.questions[0].pergunta}` : 'Lê e toma nota dos pontos principais.'))}</p>
-        <div class="row"><a class="button" href="/material?id=${encodeURIComponent(block.id)}" target="_blank" rel="noopener">Abrir PDF</a>
+        <div class="row"><a class="button" href="/material?id=${encodeURIComponent(block.id)}" target="_blank" rel="noopener">Abrir material</a>
         <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="bem">Percebi</button>
         <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="assim">Mais ou menos</button>
         <button data-study="${block.id}" data-minutes="${block.minutes}" data-result="mal">Preciso de rever</button></div></div>`).join('') : `<div class="empty">${plan.minutes === 0 ? 'Hoje marcaste um dia sem estudo. O plano retoma quando houver tempo.' : plan.totalMaterials ? 'Está tudo em dia. Aproveita para descansar ou rever uma carta.' : 'Adiciona materiais para veres o plano.'}</div>`}
@@ -197,7 +199,7 @@ function courses() {
       <form id="manual-course-form"><label>Nome da cadeira<input name="name" maxlength="100" required placeholder="Ex.: Matemática"></label><button>Criar cadeira</button></form></section></div>
     <section class="card" style="margin-top:18px"><h2>As tuas cadeiras</h2>${state.courses.length ? `<form id="course-form">
       ${state.courses.map((course) => `<div class="course-choice"><input id="course-${course.id}" type="checkbox" name="course" value="${course.id}" ${course.selected ? 'checked' : ''}><label for="course-${course.id}">${esc(course.name)} <small>· ${course.source === 'manual' ? 'manual' : 'Moodle'}</small></label></div>`).join('')}
-      <p><small>${state.hostedBilling && state.user.plan === 'free' ? 'Plano Grátis: uma cadeira de cada vez. ' : ''}${selected.length ? `Em acompanhamento: ${selected.map((course) => esc(course.name)).join(', ')}.` : ''} Guardar a seleção inicia a importação dos PDFs.</small></p><button class="primary">Guardar seleção e importar</button></form>
+      <p><small>${state.hostedBilling && state.user.plan === 'free' ? 'Plano Grátis: uma cadeira de cada vez. ' : ''}${selected.length ? `Em acompanhamento: ${selected.map((course) => esc(course.name)).join(', ')}.` : ''} Guardar a seleção inicia a importação dos materiais.</small></p><button class="primary">Guardar seleção e importar</button></form>
       <div style="margin-top:28px"><h3>Datas de exame</h3><p class="muted">Ajuda o plano a distribuir o estudo até à prova.</p>
       ${selected.map((course) => `<form class="exam-form row" data-course="${course.id}" style="margin-bottom:12px"><label style="margin:0;flex:1;min-width:200px">${esc(course.name)}<input type="date" name="date" value="${course.exam_at ? new Date(course.exam_at * 1000).toISOString().slice(0, 10) : ''}"></label><button>Guardar data</button></form>`).join('')}</div>` : '<div class="empty">Ainda não tens cadeiras.</div>'}</section>`);
 }
@@ -208,16 +210,16 @@ function files() {
   selectedCourse = course?.id || null;
   const files = state.files.filter((file) => file.course_id === selectedCourse);
   shell(`<div class="topline"><div><span class="eyebrow">Biblioteca privada</span><h1>Materiais</h1><p class="muted">Tudo o que tens disponível nesta cadeira.</p></div></div>
-    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar PDFs e extrair texto do Moodle. Os ficheiros aparecem aqui quando terminarem.</div>' : ''}
+    ${state.sync?.status === 'running' ? '<div class="notice" role="status">A importar materiais e a extrair texto dos PDFs. Os ficheiros aparecem aqui quando terminarem.</div>' : ''}
     ${course ? `<div class="row"><label style="margin:0;min-width:220px">Cadeira<select id="file-course">${courses.map((c) => `<option value="${c.id}" ${c.id === selectedCourse ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label></div>
     <div class="two" style="margin-top:22px"><div class="card"><h2>${esc(course.name)}</h2>
       ${files.length ? `<div class="row material-filters"><label>Procurar material<input id="file-search" type="search" placeholder="Nome ou resumo" value="${esc(fileSearch)}"></label>
         <label class="checkbox-label"><input id="favorites-only" type="checkbox" ${favoritesOnly ? 'checked' : ''}> Só favoritos</label></div><div id="materials-no-results" class="empty" hidden>Nenhum material corresponde à pesquisa.</div>` : ''}
-      ${files.length ? files.map((file) => `<div class="item material-item" data-favorite="${file.favorite ? 'true' : 'false'}"><div class="material-title-row"><button data-file="${file.id}" style="border:0;padding:0;text-align:left;font-weight:700">${esc(file.filename)}</button><a href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener" aria-label="Abrir PDF ${esc(file.filename)}">↗</a>
+      ${files.length ? files.map((file) => `<div class="item material-item" data-favorite="${file.favorite ? 'true' : 'false'}"><div class="material-title-row"><button data-file="${file.id}" style="border:0;padding:0;text-align:left;font-weight:700">${esc(file.filename)}</button><a href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener" aria-label="${isPdf(file) ? 'Abrir PDF' : 'Descarregar documento'} ${esc(file.filename)}">↗</a>
       <button class="favorite-button" data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-label="${file.favorite ? 'Retirar' : 'Adicionar'} ${esc(file.filename)} ${file.favorite ? 'dos' : 'aos'} favoritos" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★' : '☆'}</button></div>
       <div><small>${Math.round(file.size / 1024)} kB · ${file.source === 'upload' ? 'Enviado por ti' : 'Moodle'} · ${esc(materialStatus(file))}</small></div>
-      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'privado' ? 'Conteúdo sensível: excluído da análise.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : `<div class="empty">${state.sync?.status === 'running' ? 'A importar os PDFs desta cadeira…' : 'Ainda não há PDFs nesta cadeira.'}${course.source === 'moodle' && state.sync?.status !== 'running' ? '<div style="margin-top:14px"><button class="primary" data-action="sync">Importar do Moodle</button></div>' : ''}</div>`}</div>
-    <div class="stack"><div class="card"><h2>Enviar PDF</h2><p>Para apontamentos teus ou quando o Moodle não está disponível.</p><form id="upload-form"><label class="file-input"><span>Escolher PDF</span><input name="file" type="file" accept="application/pdf,.pdf" required><small data-selected-file>Nenhum ficheiro escolhido</small></label><button class="primary">Enviar</button></form><p><small>Limite: 20 MB por ficheiro.</small></p></div>
+      <p class="muted">${file.summary ? esc(file.summary) : file.text_status === 'privado' ? 'Conteúdo sensível: excluído da análise.' : file.text_status === 'sem-extracao' ? 'Documento guardado. A análise por IA está disponível para PDFs.' : 'Resumo ainda não disponível.'}</p></div>`).join('') : `<div class="empty">${state.sync?.status === 'running' ? 'A importar materiais desta cadeira…' : 'Ainda não há materiais nesta cadeira.'}${course.source === 'moodle' && state.sync?.status !== 'running' ? '<div style="margin-top:14px"><button class="primary" data-action="sync">Importar do Moodle</button></div>' : ''}</div>`}</div>
+    <div class="stack"><div class="card"><h2>Enviar material</h2><p>Para apontamentos teus ou quando o Moodle não está disponível.</p><form id="upload-form"><label class="file-input"><span>Escolher ficheiro</span><input name="file" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.doc,.ppt,.xls,.txt,.md,.csv,.rtf,.epub,.zip" required><small data-selected-file>Nenhum ficheiro escolhido</small></label><button class="primary">Enviar</button></form><p><small>PDF, Office, OpenDocument, texto, EPUB ou ZIP · até 20 MB. Só os PDFs são analisados por IA.</small></p></div>
     <div class="card"><h2>Perguntar à cadeira</h2><p>Respostas só a partir dos PDFs, com indicação do ficheiro e página.</p>
       ${state.ai?.consented && state.ai?.configured ? `<form id="ask-form"><label>Pergunta<input name="question" required minlength="4" maxlength="1000" placeholder="Ex.: Como se aplica este conceito?"></label><button class="primary">Perguntar</button></form>
       ${answer ? `<div class="notice" style="margin-top:16px"><p>${esc(answer.answer)}</p>${answer.citations?.map((citation) => `<a href="/material?id=${encodeURIComponent(citation.fileId)}#page=${citation.page}" target="_blank" rel="noopener">${esc(citation.filename)}, p. ${citation.page}</a>`).join(' · ') || ''}</div>` : ''}` : '<p class="muted">Ativa a análise por IA nas Definições para fazer perguntas.</p>'}</div></div></div>` : '<div class="empty">Seleciona uma cadeira para ver os materiais. <button data-screen="courses">Escolher cadeira</button></div>'}`);
@@ -242,11 +244,12 @@ function detail() {
   if (!fileDetail) return shell('<div class="loading">A abrir o material…</div>');
   const file = fileDetail;
   shell(`<button data-screen="files">← Materiais</button><div class="topline" style="margin-top:30px"><div><span class="eyebrow">${esc(courseName(file.course_id))}</span><h1>${esc(file.filename)}</h1></div>
-    <div class="row"><button data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★ Guardado' : '☆ Guardar'}</button><a class="button primary" href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">Abrir PDF</a></div></div>
+    <div class="row"><button data-favorite-file="${file.id}" data-favorite="${file.favorite ? 'true' : 'false'}" aria-pressed="${Boolean(file.favorite)}">${file.favorite ? '★ Guardado' : '☆ Guardar'}</button><a class="button primary" href="/material?id=${encodeURIComponent(file.id)}" target="_blank" rel="noopener">${isPdf(file) ? 'Abrir PDF' : 'Descarregar documento'}</a></div></div>
     ${file.text_status === 'privado' ? '<div class="notice error">Este ficheiro parece conter dados de pessoas e está excluído da análise por IA.</div>' : ''}
     ${file.text_status === 'vazio' ? '<div class="notice">Este PDF não tem texto selecionável. Pode ser uma digitalização que precisa de OCR.</div>' : ''}
     ${file.text_status === 'falhou' ? '<div class="notice error">Falhou a extração de texto. Tenta sincronizar novamente ou abre o PDF para estudar diretamente.</div>' : ''}
-    <div class="two"><section class="card"><h2>Resumo</h2><p>${esc(file.summary || 'Ainda não há resumo. O PDF continua disponível para estudo.')}</p>
+    ${file.text_status === 'sem-extracao' ? '<div class="notice">Este documento está guardado na tua pasta de materiais. Abre-o com uma aplicação compatível no teu computador. A extração de texto e a IA estão disponíveis para PDFs.</div>' : ''}
+    <div class="two"><section class="card"><h2>Resumo</h2><p>${esc(file.summary || (isPdf(file) ? 'Ainda não há resumo. O PDF continua disponível para estudo.' : 'Este formato não tem resumo automático.'))}</p>
       ${file.text_status === 'ok' && state.ai?.consented && state.ai?.configured ? `<button data-simple="${file.id}" data-course="${file.course_id}">Explica isto de forma simples</button>` : ''}
       ${!file.summary && file.text_status === 'ok' && state.ai?.consented && state.ai?.configured ? `<button data-analyze="${file.id}">Criar resumo com IA</button>` : ''}
       ${file.topics?.length ? `<h3>Conceitos principais</h3><div class="row">${file.topics.map((topic) => `<span class="tag">${esc(topic)}</span>`).join('')}</div>` : ''}
@@ -658,7 +661,7 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'manual-course-form') {
       await post('/api/manual-course', { name: data.get('name') }); flash('Cadeira criada.'); await refresh();
     } else if (form.id === 'course-form') {
-      await post('/api/courses', { selected: data.getAll('course') }); flash('Seleção guardada. A importar os PDFs das cadeiras Moodle.'); await refresh();
+      await post('/api/courses', { selected: data.getAll('course') }); flash('Seleção guardada. A importar os materiais das cadeiras Moodle.'); await refresh();
     } else if (form.classList.contains('exam-form')) {
       await post('/api/exam', { courseId: form.dataset.course, date: data.get('date') }); flash('Data de exame guardada.'); await refresh();
     } else if (form.id === 'time-form') {
@@ -685,9 +688,9 @@ document.addEventListener('submit', async (event) => {
       flash('Email confirmado.'); await refresh();
     } else if (form.id === 'upload-form') {
       const file = data.get('file');
-      if (!(file instanceof File) || file.size > 20 * 1024 * 1024) throw new Error('Escolhe um PDF até 20 MB.');
-      await api(`/api/upload?course=${encodeURIComponent(selectedCourse)}`, { method: 'POST', headers: { 'content-type': 'application/pdf', 'x-filename': encodeURIComponent(file.name) }, body: file });
-      flash('PDF enviado.'); await refresh();
+      if (!(file instanceof File) || file.size > 20 * 1024 * 1024) throw new Error('Escolhe um ficheiro até 20 MB.');
+      await api(`/api/upload?course=${encodeURIComponent(selectedCourse)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-filename': encodeURIComponent(file.name) }, body: file });
+      flash('Material guardado.'); await refresh();
     } else if (form.id === 'delete-form') {
       if (!confirm('Apagar definitivamente a conta e todos os dados?')) return;
       await post('/api/delete-account', { password: data.get('password') }); state = null; screen = 'landing'; history.replaceState({}, '', '/'); render(); flash('Conta apagada.');

@@ -17,7 +17,7 @@ Este documento reúne limitações observadas no código. Não representa uma pr
 - Tornar a sincronização e os resumos recuperáveis após reinício do processo, com progresso visível por ficheiro.
 - Medir acessibilidade com utilizadores e completar uma auditoria WCAG AA.
 - Disponibilizar importação da exportação de dados para facilitar migração entre instalações.
-- Permitir importar DOCX e PPTX com pré-visualização e extração de texto. A versão atual aceita PDF.
+- Adicionar pré-visualização e extração de texto para DOCX, PPTX e outros documentos. A versão atual guarda esses ficheiros, mas analisa apenas PDF.
 - Guardar respostas e resultados completos dos simulados para retomar uma sessão interrompida e comparar tentativas.
 
 ## Questões conhecidas
