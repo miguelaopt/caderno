@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pt-PT" data-composition-variables='[{"id":"siteUrl","type":"string","label":"Link do site","default":"github.com/miguelaopt/caderno"}]'>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>Caderno — vídeo de lançamento</title>
+  <script src="assets/gsap.min.js"></script>
+  <style>
+    @font-face { font-family: Newsreader; src: url(assets/newsreader.woff2) format("woff2"); font-weight: 200 800; }
+    :root {
+      --bg: #111b1c; --surface: #172324; --raised: #1f3335; --line: #2b3c3e; --line-strong: #3d5254;
+      --text: #eef1ea; --muted: #a9bab5; --accent: #d8b56b; --accent-ink: #1b1b16; --accent-soft: #d8b56b1f;
+      --display: Newsreader, Georgia, serif; --ui: system-ui, sans-serif;
+    }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--ui); }
+    #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+    .bg { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 50% 45%, var(--raised) 0%, var(--bg) 100%); }
+    .scene { position: absolute; inset: 0; }
+    .inner { position: absolute; inset: 0; }
+    .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; box-sizing: border-box; padding: 0 160px; }
+    .display { font-family: var(--display); font-weight: 450; letter-spacing: -0.01em; line-height: 1.12; margin: 0; text-wrap: balance; }
+    .kicker { font-size: 22px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 22px; }
+
+    /* Cenas 3–5: legenda à esquerda, produto à direita (ao alto: empilhado). */
+    .split { display: grid; grid-template-columns: 480px 1160px; gap: 80px; align-items: center; justify-content: center; height: 100%; box-sizing: border-box; }
+    .caption { font-size: 62px; }
+    .crop { position: relative; overflow: hidden; width: 100%; aspect-ratio: var(--w) / var(--h); border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 80px #00000066; }
+    .crop img { position: absolute; top: 0; width: calc(1400 / var(--w) * 100%); left: calc(var(--x) / var(--w) * -100%); display: block; }
+
+    /* 1 · título */
+    #s1 .icon { width: 230px; height: 230px; display: block; margin-bottom: 56px; }
+    #s1 h1 { font-size: 88px; max-width: 1200px; }
+    #s1 .ln { display: block; }
+
+    /* 2 · problema */
+    #s2 .desk { position: absolute; left: 50%; top: 50%; width: 1300px; height: 720px; margin: -360px 0 0 -650px; }
+    .win, .file { position: absolute; display: block; box-sizing: border-box; }
+    .win { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px #0000007a; }
+    .win .bar { display: flex; justify-content: space-between; align-items: center; height: 46px; padding: 0 18px; background: var(--raised); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 18px; }
+    .win .bar span:last-child { letter-spacing: 0.6em; }
+    .win .body { padding: 26px; display: grid; gap: 16px; }
+    .sk { height: 14px; border-radius: 7px; background: var(--line); }
+    .sk.h { height: 22px; width: 55%; background: var(--line-strong); }
+    .page { background: #e9ece4; border-radius: 4px; height: 100%; padding: 30px; display: grid; gap: 14px; align-content: start; box-sizing: border-box; }
+    .page .sk { background: #c9cec4; } .page .sk.h { background: #aab2a7; }
+    .file { width: 230px; padding: 22px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 18px 40px #00000066; }
+    .file b { display: inline-block; padding: 4px 10px; border-radius: 5px; background: #8c3b32; color: #fff; font-size: 16px; margin-bottom: 14px; }
+    .file p { margin: 0; font-size: 19px; color: var(--text); overflow-wrap: anywhere; }
+    #s2 .lines { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; text-align: center; padding: 0 120px; }
+    #s2 .lines p { font-size: 72px; }
+
+    /* 3 · Hoje: foco no plano de hoje (coordenadas da captura de 1400×973) */
+    #s3 .crop { --w: 1400; --h: 973; --x: 0; }
+    #s3 .zoom { position: absolute; inset: 0; }
+    .spot { position: absolute; left: 23.1%; top: 20.4%; width: 43.6%; height: 48.6%; border: 3px solid var(--accent); border-radius: 14px; box-shadow: 0 0 0 3000px #0b1213b3; }
+
+    /* 4 · Explicações: painel da app recriado (web/product.css .cite e .sources) */
+    .panel { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 46px 52px; box-shadow: 0 30px 80px #00000066; }
+    .panel .meta { margin: 0 0 6px; color: var(--muted); font-size: 22px; }
+    .panel h2 { margin: 0 0 26px; font-family: var(--display); font-weight: 500; font-size: 48px; }
+    .panel .prose p { margin: 0 0 18px; font-size: 29px; line-height: 1.55; }
+    .cite { position: relative; display: inline-block; padding: 0 0.42em; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 0.8em; font-weight: 650; line-height: 1.6; white-space: nowrap; vertical-align: 0.08em; }
+    .cite .fill, .pill .fill { position: absolute; inset: 0; border-radius: inherit; background: var(--accent); opacity: 0; }
+    .cite i, .pill i { position: relative; font-style: normal; }
+    .sources { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+    .sources h3 { margin: 0 0 14px; font-size: 21px; font-weight: 600; color: var(--muted); }
+    .sources ul { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .pill { position: relative; display: inline-block; padding: 6px 18px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 22px; font-weight: 650; color: var(--accent); }
+    .hint { margin: 22px 0 0; font-size: 20px; color: var(--muted); }
+
+    /* 5 · Flashcards e Treino (recortes sem o espaço vazio de baixo) */
+    #s5 .stage { position: relative; display: grid; align-items: center; }
+    #s5 .stage > * { grid-area: 1 / 1; }
+    #s5 .fc, #s5 .tr { --w: 1400; --h: 790; --x: 0; }
+
+    /* 6 · fecho */
+    #s6 .mark { display: flex; align-items: center; gap: 26px; margin-bottom: 54px; }
+    #s6 .mark img { width: 120px; height: 120px; display: block; }
+    #s6 .logo { font-size: 76px; font-weight: 800; letter-spacing: -0.04em; }
+    #s6 .logo span { color: var(--accent); }
+    #s6 .facts { font-size: 64px; margin-bottom: 40px; }
+    #s6 .url { font-size: 34px; color: var(--text); padding-bottom: 6px; border-bottom: 2px solid var(--accent); margin: 0 0 70px; }
+    #s6 .credit { font-size: 24px; color: var(--muted); margin: 0; }
+
+    /* Versão 9:16: mesmas cenas, empilhadas e reenquadradas. */
+    @media (orientation: portrait) {
+      .center { padding: 0 90px; }
+      #s1 .icon { width: 260px; height: 260px; }
+      #s1 h1 { font-size: 92px; }
+      #s2 .desk { width: 940px; height: 1100px; margin: -550px 0 0 -470px; }
+      #s2 .lines { padding: 0 90px; }
+      #s2 .lines p { font-size: 80px; }
+      .split { grid-template-columns: 960px; grid-auto-rows: min-content; align-content: center; gap: 64px; text-align: center; }
+      .caption { font-size: 76px; }
+      .panel .prose p { font-size: 31px; }
+      #s3 .crop { --w: 1050; --x: 300; }
+      #s3 .spot { left: calc(23.1% * 1400 / 1050 - 300 / 1050 * 100%); width: calc(43.6% * 1400 / 1050); }
+      .panel { padding: 44px 46px; }
+      #s5 .stage { height: 900px; }
+      #s5 .fc { --w: 1070; --h: 770; --x: 40; }
+      #s5 .tr { --w: 850; --h: 790; --x: 40; }
+      #s6 .facts { font-size: 60px; max-width: 760px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="30">
+    <div class="bg"></div>
+
+    <section id="s1" class="clip scene" data-layout-allow-overlap data-start="0" data-duration="4.8" data-len="4" data-ref="5" data-track-index="1">
+      <div class="inner"><div class="center">
+        <img class="icon" src="assets/icon-1024.png" alt="" />
+        <h1 class="display"><span class="ln">Cada cadeira arrumada,</span> <span class="ln">o próximo passo à vista.</span></h1>
+      </div></div>
+    </section>
+
+    <section id="s2" class="clip scene" data-layout-allow-overlap data-start="4" data-duration="5.8" data-len="5" data-ref="7" data-track-index="2">
+      <div class="inner">
+        <div class="desk">
+          <div class="win" style="left:2%;top:4%;width:48%;height:46%"><div class="bar"><span>Moodle · Página da cadeira</span><span>—▢✕</span></div>
+            <div class="body"><div class="sk h"></div><div class="sk" style="width:90%"></div><div class="sk" style="width:75%"></div><div class="sk" style="width:82%"></div><div class="sk" style="width:60%"></div></div></div>
+          <div class="win" style="left:50%;top:0;width:44%;height:40%"><div class="bar"><span>Moodle · Prazos</span><span>—▢✕</span></div>
+            <div class="body"><div class="sk h" style="width:40%"></div><div class="sk" style="width:85%"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:78%"></div></div></div>
+          <div class="win" style="left:27%;top:34%;width:42%;height:58%"><div class="bar"><span>Ficha 04 — normalização.pdf</span><span>—▢✕</span></div>
+            <div class="body" style="height:calc(100% - 46px);box-sizing:border-box;background:#0d1516"><div class="page"><div class="sk h"></div><div class="sk" style="width:92%"></div><div class="sk" style="width:86%"></div><div class="sk" style="width:90%"></div><div class="sk" style="width:64%"></div></div></div></div>
+          <div class="file" style="left:3%;top:62%"><b>PDF</b><p>Casos de uso.pdf</p></div>
+          <div class="file" style="left:74%;top:46%"><b>PDF</b><p>Resumo_final_v3.pdf</p></div>
+          <div class="file" style="left:70%;top:76%"><b>PDF</b><p>slides_semana3 (1).pdf</p></div>
+        </div>
+        <div class="lines"><p class="display l1">O material está espalhado.</p><p class="display l2">Por onde começo hoje?</p></div>
+      </div>
+    </section>
+
+    <section id="s3" class="clip scene" data-layout-allow-overlap data-start="9" data-duration="6.3" data-len="5.5" data-ref="8" data-track-index="1">
+      <div class="inner"><div class="split">
+        <div class="text"><p class="kicker">Hoje</p><p class="display caption">Um plano à medida do tempo que tens.</p></div>
+        <div data-layout-allow-overflow class="crop"><div class="zoom"><img src="assets/hoje-hero.webp" alt="Ecrã Hoje do Caderno com o plano de hoje" /><div class="spot"></div></div></div>
+      </div></div>
+    </section>
+
+    <section id="s4" class="clip scene" data-layout-allow-overlap data-start="14.5" data-duration="6.3" data-len="5.5" data-ref="8" data-track-index="2">
+      <div class="inner"><div class="split">
+        <div class="text"><p class="kicker">Explicações</p><p class="display caption">Explicações que mostram a página de onde vieram.</p></div>
+        <div class="panel">
+          <p class="meta">Introdução ao modelo relacional.pdf</p>
+          <h2>Explicação simples</h2>
+          <div class="prose">
+            <p class="pa">Um modelo relacional guarda os dados em tabelas. Cada linha é um registo e cada coluna um atributo. <span class="cite c2"><i>p.&nbsp;2</i></span></p>
+            <p class="pa">A chave primária identifica cada linha. Uma chave estrangeira aponta para a chave primária de outra tabela. <span class="cite c4"><span class="fill"></span><i>p.&nbsp;4</i></span></p>
+            <p class="pa">É assim que as tabelas se ligam sem repetir dados.</p>
+          </div>
+          <div class="sources"><h3>Páginas citadas de Introdução ao modelo relacional.pdf</h3>
+            <ul><li class="pill c2"><i>p. 2</i></li><li class="pill c4"><span class="fill"></span><i>p. 4</i></li></ul></div>
+          <p class="hint">As marcas «p.» abrem o PDF na página de onde veio cada parte.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <section id="s5" class="clip scene" data-layout-allow-overlap data-start="20" data-duration="5.8" data-len="5" data-ref="7" data-track-index="1">
+      <div class="inner"><div class="split">
+        <div class="text"><p class="kicker">Para estudar</p><p class="display caption">Flashcards, treino e simulados a partir dos teus PDFs.</p></div>
+        <div class="stage">
+          <div data-layout-allow-overflow class="crop fc"><img src="assets/flashcards.webp" alt="Ecrã Flashcards com uma carta revelada" /></div>
+          <div data-layout-allow-overflow class="crop tr"><img src="assets/treino.webp" alt="Ecrã Treino com a resposta de referência" /></div>
+        </div>
+      </div></div>
+    </section>
+
+    <section id="s6" class="clip scene" data-layout-allow-overlap data-start="25" data-duration="5" data-len="5" data-ref="7" data-track-index="2">
+      <div class="inner"><div class="center">
+        <div class="mark"><img src="assets/icon-1024.png" alt="" /><span class="logo">caderno<span>.</span></span></div>
+        <p class="display facts">Grátis&nbsp;· Código aberto&nbsp;· Para Windows</p>
+        <p class="url" data-var-text="siteUrl">github.com/miguelaopt/caderno</p>
+        <p class="credit">Feito por Miguel Ferreira, estudante</p>
+      </div></div>
+    </section>
+
+    <audio id="music" src="assets/music/piano-bed.wav" data-start="0" data-duration="30" data-track-index="10" data-volume="1"></audio>
+    <audio id="sfx-cite" src="assets/sfx/rollover2.ogg" data-start="16.975" data-track-index="11" data-volume="0.35" data-duration="0.06"></audio>
+    <audio id="sfx-card" src="assets/sfx/card-slide-1.ogg" data-start="22.5" data-duration="0.6" data-track-index="12" data-volume="0.3"></audio>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const rise = (el, t, d = 1, y = 16) => tl.fromTo(el, { opacity: 0, y }, { opacity: 1, y: 0, duration: d, ease: "power2.out" }, t);
+
+    const scenes = {
+      s1(q, at) {
+        rise(q(".icon"), at(0.2), 1.3);
+        rise(q("h1"), at(1.0), 1.3);
+      },
+      s2(q, at) {
+        const items = q(".win, .file", true);
+        items.forEach((el, i) => rise(el, at(0.05 * i), 0.7, 12));
+        items.forEach((el, i) => tl.to(el, { opacity: 0, y: -10, duration: 0.7, ease: "sine.in" }, at(1.9 + 0.25 * i)));
+        rise(q(".l1"), at(3.4), 1);
+        rise(q(".l2"), at(4.3), 1);
+      },
+      s3(q, at, end) {
+        rise(q(".crop"), at(0.1), 1.1, 24);
+        rise(q(".kicker"), at(0.4));
+        rise(q(".caption"), at(0.7));
+        tl.fromTo(q(".spot"), { opacity: 0 }, { opacity: 1, duration: 1, ease: "sine.inOut" }, at(2.2));
+        tl.fromTo(q(".zoom"), { scale: 1 }, { scale: 1.14, duration: end - at(2.2), ease: "sine.inOut", transformOrigin: "45% 45%" }, at(2.2));
+      },
+      s4(q, at) {
+        rise(q(".panel"), at(0.1), 1.1, 24);
+        rise(q(".kicker"), at(0.4));
+        rise(q(".caption"), at(0.7));
+        q(".pa", true).forEach((el, i) => rise(el, at(1.0 + 0.6 * i), 0.8, 10));
+        rise(q(".sources"), at(2.8), 0.8, 10);
+        rise(q(".hint"), at(3.2), 0.8, 10);
+        // O único destaque dourado: a marca «p. 4» (SFX sfx-cite às 3.6 s da cena).
+        tl.to(q(".c4 .fill", true), { opacity: 1, duration: 0.6, ease: "sine.out" }, at(3.6));
+        tl.to(q(".c4 i", true), { color: "#1b1b16", duration: 0.6, ease: "sine.out" }, at(3.6));
+        tl.to(q(".c2", true), { opacity: 0.45, duration: 0.6, ease: "sine.out" }, at(3.6));
+      },
+      s5(q, at) {
+        rise(q(".kicker"), at(0.4));
+        rise(q(".caption"), at(0.7));
+        rise(q(".fc"), at(0.1), 1.1, 24);
+        tl.set(q(".tr"), { opacity: 0 }, 0);
+        // Troca às 3.5 s da cena (SFX sfx-card).
+        tl.to(q(".fc"), { opacity: 0, x: -40, duration: 0.8, ease: "sine.inOut" }, at(3.5));
+        tl.fromTo(q(".tr"), { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.9, ease: "power2.out" }, at(3.5) + 0.15);
+      },
+      s6(q, at) {
+        rise(q(".mark"), at(0.2), 1.2);
+        rise(q(".facts"), at(1.0), 1.1);
+        rise(q(".url"), at(1.9), 1);
+        rise(q(".credit"), at(2.6), 1);
+      },
+    };
+
+    // Tempos internos escritos para a versão 16:9 (data-ref) e esticados à duração real da cena (data-len).
+    document.querySelectorAll(".scene").forEach((sc) => {
+      const start = +sc.dataset.start, len = +sc.dataset.len, k = len / +sc.dataset.ref;
+      const q = (sel, all) => (all ? [...sc.querySelectorAll(sel)] : sc.querySelector(sel));
+      scenes[sc.id](q, (t) => start + t * k, start + len);
+      if (+sc.dataset.duration > len) tl.to(sc.querySelector(".inner"), { opacity: 0, duration: 0.8, ease: "sine.inOut" }, start + len);
+    });
+
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>

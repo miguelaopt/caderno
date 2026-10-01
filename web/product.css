@@ -91,6 +91,8 @@ legend{padding:0;font-size:.9rem;font-weight:600;margin-bottom:8px}
 .sidebar button:not(.logo){justify-content:flex-start;width:100%;min-height:38px;padding:.45rem .75rem;border:0;color:var(--muted);text-align:left}
 .sidebar button:not(.logo):hover{background:var(--raised);color:var(--text)}
 .sidebar button[aria-current=page]{background:var(--raised);color:var(--text);font-weight:650;box-shadow:inset 2px 0 0 var(--accent)}
+.sidebar-link{display:flex;align-items:center;min-height:34px;padding:.35rem .75rem;border-radius:var(--radius-control);color:var(--faint);font-size:.88rem;text-decoration:none}
+.sidebar-link:hover{background:var(--raised);color:var(--text)}
 .sidebar-bottom{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:16px;border-top:1px solid var(--line)}
 .app-main{width:100%;max-width:1160px;margin:0 auto;padding:36px clamp(20px,4vw,52px) 72px;outline:none}
 
@@ -378,3 +380,12 @@ button[aria-busy=true]::after{content:"";width:12px;height:12px;border:2px solid
 .ai-help .row{margin-top:2px}
 
 @media(max-width:1080px){.explain-layout{grid-template-columns:minmax(0,1fr)}}
+
+/* IA grátis e sobre */
+.free-ai{display:grid;gap:10px;margin-bottom:16px;padding:16px 18px;border:1px solid var(--accent);border-radius:var(--radius-control);background:var(--accent-soft)}
+.free-ai h3,.panel .free-ai h3{margin:0;font-size:1rem}
+.free-ai ol{display:grid;gap:6px;padding-left:20px;list-style:decimal}
+.free-ai .hint{margin:0}
+.about-actions{display:flex;flex-wrap:wrap;gap:10px}
+.coffee{border-color:var(--accent);color:var(--accent)}
+@media(max-width:780px){.sidebar-link{white-space:nowrap}}

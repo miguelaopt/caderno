@@ -1,0 +1,30 @@
+name: Reportar um problema
+description: Algo no Caderno não funciona como esperavas.
+labels: [problema]
+body:
+  - type: markdown
+    attributes:
+      value: Obrigado por reportares. Não incluas a tua chave de IA, palavras-passe nem dados de colegas.
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu?
+      description: O que estavas a fazer, o que esperavas e o que apareceu. Uma captura de ecrã ajuda.
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Caderno
+      description: Aparece no fundo das Definições.
+      placeholder: 0.3.0
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options: [Windows 11, Windows 10, Outro]
+  - type: dropdown
+    id: ia
+    attributes:
+      label: Fornecedor de IA (se for um problema de IA)
+      options: [Não uso IA, Groq, Anthropic, OpenAI, DeepSeek, Outro compatível]

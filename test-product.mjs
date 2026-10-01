@@ -268,6 +268,13 @@ try {
     };
     assert.deepEqual(await generateAi(userAiClient(cacheDb, userId, 'summary'), 'Sistema', 'Texto', 100),
       { text: '{"ok":true}', usage: { input_tokens: 4, output_tokens: 3 }, truncated: false });
+    // Limite por minuto (plano gratuito da Groq): espera o retry-after e repete o pedido.
+    let calls = 0;
+    globalThis.fetch = async () => ++calls === 1
+      ? new Response(JSON.stringify({ error: { message: 'Rate limit' } }), { status: 429, headers: { 'retry-after': '0' } })
+      : new Response(JSON.stringify({ output_text: 'depois da espera', usage: {} }), { status: 200 });
+    assert.equal((await generateAi(userAiClient(cacheDb, userId, 'summary'), 'Sistema', 'Texto', 100)).text, 'depois da espera');
+    assert.equal(calls, 2);
     process.env.AI_ALLOWED_BASE_URLS = 'https://models.example.test/v1';
     saveAiSettings(cacheDb, userId, { provider: 'compatible', baseUrl: 'https://models.example.test/v1',
       apiKey: 'other-test-key-123', summaryModel: 'model-a', explainModel: 'model-b' });

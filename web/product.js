@@ -164,6 +164,17 @@ setInterval(() => {
 const analyzing = (id) => busy.has(`analyze:${id}`);
 const summaryLoading = (id) => loadingBlock('A ler o PDF e a criar o resumo, os conceitos e as perguntas. Costuma demorar 10 a 40 segundos.', `analyze:${id}`, 4);
 
+const links = {
+  issues: () => `https://github.com/miguelaopt/caderno/issues/new?template=problema.yml${state.version ? `&versao=${encodeURIComponent(state.version)}` : ''}`,
+  kofi: 'https://ko-fi.com/miguelaopt',
+  author: 'https://github.com/miguelaopt',
+};
+const aboutPanel = () => `<section class="panel about"><h2>Sobre o Caderno</h2>
+  <p class="muted">Feito por <a href="${links.author}" target="_blank" rel="noopener">Miguel Ferreira</a>, estudante de Engenharia Informática, para estudar as próprias cadeiras. É gratuito e de código aberto.</p>
+  <div class="about-actions"><a class="button" href="${links.issues()}" target="_blank" rel="noopener">Reportar um problema</a>
+    <a class="button coffee" href="${links.kofi}" target="_blank" rel="noopener">☕ Paga-me um café</a></div>
+  <p class="hint">Ao reportar, diz o que estavas a fazer e o que apareceu. Não incluas a tua chave de IA nem dados de colegas.</p></section>`;
+
 const helpNote = (title, items) => `<details class="help"><summary>${title}</summary><ul>${items.map((item) => `<li>${item}</li>`).join('')}</ul></details>`;
 
 const revealButton = (file) => state.desktop ? `<button data-open-file="${file.id}" data-reveal="true">Mostrar na pasta</button>` : '';
@@ -189,7 +200,7 @@ function shell(content) {
   root.innerHTML = `<div class="app-shell"><aside class="sidebar">
     <button class="logo" data-screen="today" aria-label="Caderno, ir para Hoje">caderno<span class="logo-dot">.</span></button>
     <nav aria-label="Secções">${navigation.map(([group, items]) => `<p class="sidebar-label">${group}</p>${items.map(([id, label]) => navButton(id, label)).join('')}`).join('')}</nav>
-    <div class="sidebar-bottom">${navButton('settings', 'Definições')}<button data-action="guide">Guia de início</button>
+    <div class="sidebar-bottom"><a class="sidebar-link" href="${links.issues()}" target="_blank" rel="noopener">Reportar um problema</a><a class="sidebar-link" href="${links.kofi}" target="_blank" rel="noopener">☕ Paga-me um café</a>${navButton('settings', 'Definições')}<button data-action="guide">Guia de início</button>
       <button data-action="theme">${currentTheme() === 'dark' ? 'Tema claro' : 'Tema escuro'}</button>${state.desktop ? '' : '<button data-action="logout">Sair</button>'}</div></aside>
     <main class="app-main" tabindex="-1">${content}</main></div>`;
 }
@@ -558,6 +569,9 @@ function timeForm() {
 
 // Sugestões confirmadas na documentação de cada fornecedor a 2026-10-01. Os IDs mudam: o texto aponta sempre para a página de modelos.
 const aiProviders = {
+  groq: { label: 'Groq (plano gratuito)', keys: 'https://console.groq.com/keys', models: 'https://console.groq.com/docs/models',
+    key: 'Começa por <code>gsk_</code>. O plano gratuito não pede cartão; tem um limite por minuto, por isso a análise de vários PDFs faz-se devagar, cerca de um por minuto.', summary: 'openai/gpt-oss-20b', explain: 'openai/gpt-oss-120b',
+    list: [['openai/gpt-oss-20b', 'Muito rápido e barato'], ['openai/gpt-oss-120b', 'Mais capaz; melhor para explicações']] },
   anthropic: { label: 'Anthropic (Claude)', keys: 'https://platform.claude.com/settings/keys', models: 'https://platform.claude.com/docs/en/about-claude/models/overview',
     key: 'Começa por <code>sk-ant-</code>. Precisa de crédito pré-pago na conta.', summary: 'claude-sonnet-5-5', explain: 'claude-sonnet-5-5',
     list: [['claude-sonnet-5-5', 'Equilibrado; bom para resumos e explicações'], ['claude-haiku-4-5', 'Mais barato e rápido; a Anthropic pode retirá-lo a partir de 15 de outubro de 2026'], ['claude-opus-5-5', 'Mais capaz e cerca do dobro do preço']] },
@@ -567,9 +581,6 @@ const aiProviders = {
   deepseek: { label: 'DeepSeek', keys: 'https://platform.deepseek.com/api_keys', models: 'https://api-docs.deepseek.com/quick_start/pricing',
     key: 'Começa por <code>sk-</code>. Muito barato; fora das horas de ponta fica a metade do preço.', summary: 'deepseek-flash', explain: 'deepseek-flash',
     list: [['deepseek-flash', 'Muito barato; serve para resumos e explicações'], ['deepseek-v4-pro', 'Mais capaz e mais caro']] },
-  groq: { label: 'Groq', keys: 'https://console.groq.com/keys', models: 'https://console.groq.com/docs/models',
-    key: 'Começa por <code>gsk_</code>. Tem um nível gratuito com limites por minuto.', summary: 'openai/gpt-oss-20b', explain: 'openai/gpt-oss-120b',
-    list: [['openai/gpt-oss-20b', 'Muito rápido e barato'], ['openai/gpt-oss-120b', 'Mais capaz; melhor para explicações']] },
   compatible: { label: 'Outro compatível com Chat Completions', key: 'A chave do serviço que escolheres.', list: [],
     note: 'Para serviços que aceitam o formato Chat Completions da OpenAI, como o OpenRouter (URL base <code>https://openrouter.ai/api/v1</code>). Copia o URL base e o ID do modelo exatamente como aparecem na documentação do serviço.' },
 };
@@ -577,17 +588,24 @@ const aiProviders = {
 function aiHelp(provider) {
   const info = aiProviders[provider] || aiProviders.anthropic;
   return `<div id="ai-help" class="ai-help">
-    <p>${info.keys ? `<a href="${info.keys}" target="_blank" rel="noopener">Criar a chave em ${esc(info.label)}</a>. ` : ''}${info.key}</p>
+    <p>${info.keys ? `<a href="${info.keys}" target="_blank" rel="noopener">Criar a chave em ${esc(info.label.split(' (')[0])}</a>. ` : ''}${info.key}</p>
     ${info.list.length ? `<p class="meta">IDs de modelo que podes colar:</p><ul class="model-list">${info.list.map(([model, note]) => `<li><code>${model}</code><span>${note}</span></li>`).join('')}</ul>
       <div class="row tight"><button type="button" class="small" data-action="ai-suggest">Usar ${info.summary === info.explain ? `<code>${info.summary}</code> nos dois` : 'os sugeridos'}</button>
       <a class="link-button" href="${info.models}" target="_blank" rel="noopener">Ver todos os modelos</a></div>` : `<p class="muted">${info.note}</p>`}
     <datalist id="ai-models">${info.list.map(([model]) => `<option value="${model}">`).join('')}</datalist></div>`;
 }
 
+const freeAiSteps = () => `<div class="free-ai"><h3>Começar grátis, sem cartão</h3>
+  <ol><li>Cria conta em <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a> com o email ou a conta Google.</li>
+    <li>Em <a href="https://console.groq.com/keys" target="_blank" rel="noopener">API Keys</a>, carrega em <strong>Create API Key</strong> e copia a chave.</li>
+    <li>Cola-a aqui com o fornecedor Groq e carrega em <strong>Usar os sugeridos</strong>.</li></ol>
+  <p class="hint">O plano gratuito dá para dezenas de PDFs por dia, um de cada vez. Se quiseres mais rapidez, os outros fornecedores da lista funcionam com crédito pago.</p></div>`;
+
 const aiPanel = () => {
-  const provider = state.ai?.settings?.provider || 'anthropic';
+  const provider = state.ai?.settings?.provider || 'groq';
   return `<section class="panel"><h2>A tua chave de IA</h2>
   <p class="muted">${state.ai?.settings ? `Configurado: ${esc(aiProviders[provider]?.label || provider)}. A chave fica cifrada neste computador e não volta a aparecer.` : 'Três passos: escolhe o fornecedor, cria lá uma chave de API e cola-a aqui com os IDs dos modelos.'}</p>
+  ${state.ai?.settings ? '' : freeAiSteps()}
   <form id="ai-settings-form" autocomplete="off"><label>Fornecedor<select name="provider" required>
     ${Object.entries(aiProviders).map(([value, info]) => `<option value="${value}" ${provider === value ? 'selected' : ''}>${info.label}</option>`).join('')}</select></label>
     ${aiHelp(provider)}
@@ -616,6 +634,7 @@ function settings() {
         ${state.desktop ? `<p class="muted">Tudo fica neste computador.</p><dl class="paths"><dt>Materiais</dt><dd class="path">${esc(state.materialsDir)}</dd><dt>Base de dados e chave local</dt><dd class="path">${esc(state.dataDir)}</dd></dl>
           <p class="hint">Para uma cópia de segurança, fecha o Caderno e copia as duas pastas. A chave local é necessária para recuperar as ligações e a chave de IA.</p>` : ''}
         <a class="button" href="/api/export" download>Exportar dados (JSON)</a></section>
+      ${aboutPanel()}
       <section class="panel"><h2>Guia de início</h2><p class="muted">Volta a ver como configurar o Caderno e como estudar com ele.</p><button data-action="guide">Abrir o guia</button></section>
       <section class="panel danger-zone"><h2>Apagar tudo</h2><p class="muted">Elimina as cadeiras, os ficheiros guardados pelo Caderno, os resumos e o histórico de estudo. ${state.desktop ? 'A app recomeça com um perfil vazio.' : ''}</p>
         <form id="delete-form"><label>Escreve APAGAR para confirmar<input name="confirm" autocomplete="off" required pattern="APAGAR"></label><button class="danger">Apagar todos os dados</button></form></section>
@@ -640,8 +659,7 @@ function guideContent(step) {
     <div class="split"><section class="panel"><h2>Tempo para estudar</h2>${timeForm()}</section>
     <section class="panel"><h2>Datas de exame</h2>${examDates()}</section></div>`;
   if (step === 3) return `<h1>IA com a tua chave</h1>
-    <p class="page-lead">Opcional. Com uma chave da Anthropic, OpenAI, DeepSeek, Groq ou de outro serviço compatível, o Caderno cria resumos e perguntas a partir dos PDFs. Cada pedido pode ser cobrado pelo fornecedor na tua conta.</p>
-    <ol class="guide-steps"><li>Cria uma chave de API no site do fornecedor.</li><li>Guarda a chave e os IDs dos modelos aqui.</li><li>Autoriza a análise. Depois, pede o resumo de um PDF ou analisa os pendentes em Explicações.</li></ol>
+    <p class="page-lead">Opcional. Com uma chave de IA, o Caderno cria resumos, conceitos e perguntas a partir dos PDFs. A Groq tem um plano gratuito sem cartão; Anthropic, OpenAI e DeepSeek cobram cada pedido na tua conta.</p>
     <div class="split">${aiPanel()}${consentPanel()}</div>`;
   return `<h1>Como estudar com o Caderno</h1>
     <p class="page-lead">Um ciclo curto, todos os dias.</p>
