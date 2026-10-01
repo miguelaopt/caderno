@@ -376,6 +376,11 @@ try {
     assert.equal((await saveMoodle('https://moodle.example.test/')).status, 200);
     assert.equal((await (await fetch(ossBase + '/api/state', { headers: { cookie: ossCookie } })).json()).moodleUrl,
       'https://moodle.example.test');
+    const compatible = await fetch(ossBase + '/api/ai-settings', { method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({
+        provider: 'compatible', baseUrl: 'https://ai.example.test/v1', apiKey: 'desktop-only-key-123',
+        summaryModel: 'study-small', explainModel: 'study-large' }) });
+    assert.equal(compatible.status, 200);
     for (const name of ['Primeira', 'Segunda']) {
       const response = await fetch(ossBase + '/api/manual-course', { method: 'POST',
         headers: { 'content-type': 'application/json', cookie: ossCookie }, body: JSON.stringify({ name }) });

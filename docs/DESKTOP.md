@@ -8,7 +8,7 @@ Os PDFs já guardados abrem sem internet. Sincronizar o Moodle e usar IA exigem 
 
 Descarrega `Caderno-0.1.0-Windows-x64.exe` do [repositório](https://github.com/miguelaopt/caderno/actions/workflows/windows.yml), executa-o e escolhe a pasta de instalação. É um instalador x64 sem assinatura de código; o Windows pode apresentar um aviso de editor desconhecido. O código e o processo de build estão neste repositório.
 
-Ao abrir, cria uma conta local. Para ligar o Moodle, indica primeiro o endereço HTTPS da plataforma em **Cadeiras → Endereço do Moodle**, guarda e introduz as tuas credenciais. Também podes criar cadeiras manuais e enviar PDFs sem configurar o Moodle. Em **Definições**, podes adicionar a tua própria chave de IA; é opcional.
+Ao abrir, cria uma conta local. Para ligar o Moodle, indica primeiro o endereço HTTPS da plataforma em **Cadeiras → Endereço do Moodle**, guarda e introduz as tuas credenciais. Também podes criar cadeiras manuais e enviar PDFs sem configurar o Moodle. Em **Definições**, podes adicionar a tua própria chave de IA; é opcional. Anthropic, OpenAI, DeepSeek e Groq têm ligação direta. Para outro fornecedor que use Chat Completions, indica a URL base HTTPS e os IDs dos modelos.
 
 ## Cópias de segurança e mudança de computador
 
