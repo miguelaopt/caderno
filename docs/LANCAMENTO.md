@@ -52,8 +52,10 @@ Há dois pedidos diferentes: primeiro, a **candidatura ao programa gratuito** no
 - [x] No instalador público v0.3.1, os metadados do instalador e do `Caderno.exe` indicam produto `Caderno` e versão `0.3.1`.
 - [ ] Confirmar manualmente a autenticação de dois fatores em [GitHub → Password and authentication](https://github.com/settings/security); a API usada nesta verificação não mostrou o estado. A SignPath também exige autenticação multifator na sua conta.
 - [ ] Na candidatura, explicar que a aplicação consulta o GitHub para atualizações ao abrir e a cada quatro horas e perguntar se a SignPath exige aviso de privacidade no instalador e opção de desativar essa consulta.
+- [ ] Juntar provas reais de adoção ou confiança externas: o projeto acaba de ser publicado e ainda não tem reputação pública verificável.
+- [ ] Resolver a ambiguidade do nome `Caderno` nas pesquisas antes de afirmar que o nome identifica claramente este projeto.
 
-Depois de confirmares o 2FA no GitHub, podes enviar a candidatura com a explicação e a pergunta sobre atualizações. A aceitação e as restrições finais da assinatura são decididas pela SignPath, que também avalia a reputação pública do projeto.
+Depois de confirmares o 2FA no GitHub, podes preencher o formulário com respostas verdadeiras. Recomenda-se esperar por provas de adoção e esclarecer o nome antes de o enviar, porque a SignPath avalia estes dois pontos e decide se aceita o projeto.
 
 ### 1. Preparar o repositório
 
@@ -72,7 +74,7 @@ Depois de confirmares o 2FA no GitHub, podes enviar a candidatura com a explica�
 
 | Campo | Valor |
 | --- | --- |
-| Project Name | `Caderno` |
+| Project Name | `Caderno` (nome atual; ver ressalva abaixo). |
 | Repository URL | `https://github.com/miguelaopt/caderno` |
 | Homepage URL | `https://caderno.me` |
 | Download URL | `https://caderno.me/#descarregar` |
@@ -84,6 +86,8 @@ Depois de confirmares o 2FA no GitHub, podes enviar a candidatura com a explica�
 | Build System | GitHub Actions. |
 
 **Reputation:** em 2026-10-01, o repositório acabara de ser publicado e ainda não havia provas públicas de adoção ou cobertura independente. A única descarga do instalador registada no GitHub nessa data ocorreu durante esta verificação; não a apresentar como adoção. Texto honesto para o campo: `Caderno is a newly released open-source project and does not yet have independent coverage or meaningful adoption statistics. Its public source code, release, documentation, and GitHub Actions build are available at https://github.com/miguelaopt/caderno, https://github.com/miguelaopt/caderno/releases/tag/v0.3.1 and https://github.com/miguelaopt/caderno/actions.` Se houver provas reais de testes externos ou divulgação, juntar as ligações. A SignPath diz que pode recusar projetos sem reputação verificável.
+
+**Project Name:** a pesquisa por `Caderno` mostra outras aplicações com esse nome. O formulário pede um nome cuja pesquisa identifique claramente este projeto. Decidir uma forma distintiva de apresentar a marca e confirmar com a SignPath se aceita um identificador adicional como `caderno.me` sem alterar o nome de produto dos binários. Não inventar um nome diferente apenas no formulário: a SignPath também exige consistência dos metadados assinados.
 
 **Dados pessoais:** First Name, Last Name e Email têm de ser os dados do titular da conta SignPath. Company Name pode ficar vazio se não houver organização. Em Primary Discovery Channel, indicar a fonte verdadeira da descoberta (por exemplo, ChatGPT, se foi nesta conversa). A concordância com o Code of Conduct e com o tratamento de dados é obrigatória para enviar o pedido; as comunicações promocionais são opcionais.
 
