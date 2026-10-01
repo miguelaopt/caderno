@@ -68,6 +68,25 @@ Depois de confirmares o 2FA no GitHub, podes enviar a candidatura com a explica�
 2. Esperar pela aprovação. A SignPath verifica o projeto manualmente; pode demorar algumas semanas.
 3. Depois de aprovado, configurar no [SignPath.io](https://app.signpath.io) uma organização, um projeto, uma política de assinatura e a configuração dos artefactos. Guardar os identificadores e o token da API para o workflow; os valores concretos só são conhecidos nessa fase.
 
+**Valores para o formulário:**
+
+| Campo | Valor |
+| --- | --- |
+| Project Name | `Caderno` |
+| Repository URL | `https://github.com/miguelaopt/caderno` |
+| Homepage URL | `https://caderno.me` |
+| Download URL | `https://caderno.me/#descarregar` |
+| Privacy Policy URL | `https://caderno.me/privacidade` |
+| Wikipedia URL | Deixar vazio; não existe artigo. |
+| Tagline | `An open-source Windows app that organizes course materials, deadlines, and daily study plans.` |
+| Description | `Caderno is an open-source Windows study application that helps students organize course materials and deadlines and plan what to study each day. It offers tools for reviewing and practicing course content while keeping study data on the user's computer.` |
+| Maintainer Type | Individual / independent maintainer, se esta opção existir. |
+| Build System | GitHub Actions. |
+
+**Reputation:** em 2026-10-01, o repositório acabara de ser publicado e ainda não havia provas públicas de adoção ou cobertura independente. A única descarga do instalador registada no GitHub nessa data ocorreu durante esta verificação; não a apresentar como adoção. Texto honesto para o campo: `Caderno is a newly released open-source project and does not yet have independent coverage or meaningful adoption statistics. Its public source code, release, documentation, and GitHub Actions build are available at https://github.com/miguelaopt/caderno, https://github.com/miguelaopt/caderno/releases/tag/v0.3.1 and https://github.com/miguelaopt/caderno/actions.` Se houver provas reais de testes externos ou divulgação, juntar as ligações. A SignPath diz que pode recusar projetos sem reputação verificável.
+
+**Dados pessoais:** First Name, Last Name e Email têm de ser os dados do titular da conta SignPath. Company Name pode ficar vazio se não houver organização. Em Primary Discovery Channel, indicar a fonte verdadeira da descoberta (por exemplo, ChatGPT, se foi nesta conversa). A concordância com o Code of Conduct e com o tratamento de dados é obrigatória para enviar o pedido; as comunicações promocionais são opcionais.
+
 ### 3. Ligar ao GitHub Actions
 
 A assinatura tem de acontecer **antes** de o electron-builder calcular o `latest.yml`: as atualizações automáticas verificam o SHA-512 do instalador, e um ficheiro assinado depois teria outro hash.
