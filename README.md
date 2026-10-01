@@ -8,7 +8,7 @@ Cada pessoa pode configurar a sua própria chave de API nas Definições. A inst
 
 ## Aplicação Windows
 
-O instalador x64 e as instruções estão em [Caderno para Windows](docs/DESKTOP.md). A aplicação guarda a base de dados e a chave local em `%APPDATA%\Caderno\Dados` e os PDFs em `Documentos\Caderno\Materiais`, separados por conta e cadeira. Depois de importados, os PDFs abrem offline no visualizador da aplicação. A sincronização Moodle e os pedidos à IA precisam de internet. O instalador atual não está assinado; o workflow Windows publica um artefacto por build.
+[Descarregar o instalador Windows x64](https://github.com/miguelaopt/caderno/releases/download/v0.1.0-preview/Caderno-0.1.0-Windows-x64.exe) · [Instruções para Windows](docs/DESKTOP.md). A aplicação guarda a base de dados e a chave local em `%APPDATA%\Caderno\Dados` e os PDFs em `Documentos\Caderno\Materiais`, separados por conta e cadeira. Depois de importados, os PDFs abrem offline no visualizador da aplicação. A sincronização Moodle e os pedidos à IA precisam de internet. O instalador atual não está assinado; o workflow Windows publica um artefacto por build.
 
 ## Requisitos
 
