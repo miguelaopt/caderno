@@ -13,3 +13,10 @@ material/*/
 PLAN.md
 PROMPT-INICIAL.md
 PROGRESS.md
+
+# Documentos internos de lançamento e divulgação: ficam só nesta pasta.
+docs/LANCAMENTO.md
+docs/MARKETING.md
+docs/PROMPT-LANDING-CLAUDE.md
+docs/REDDIT.md
+brag-output/

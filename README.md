@@ -154,7 +154,7 @@ npm run desktop:dist
 | `lib/` | Moodle, sincronização, plano de estudo, IA, base de dados SQLite e segurança |
 | `web/` | Interface da app, em JavaScript sem framework |
 | `site/` | Site estático [caderno.me](https://caderno.me) |
-| `docs/` | Instalação, lançamento, marketing e roadmap |
+| `docs/` | Instalação e roadmap |
 
 `scripts/analyze.mjs`, `scripts/sync.mjs` e `npm run legacy:serve` pertencem ao sistema pessoal inicial (`data/estudo.db`, `material/`, `ANTHROPIC_API_KEY`) e não fazem parte da app.
 
