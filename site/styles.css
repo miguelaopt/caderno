@@ -227,3 +227,9 @@ button:hover,.button:hover{border-color:var(--accent);background:var(--accent-so
 .lp-support-item .lp-actions{margin-top:auto;gap:8px}
 .lp-support-item .lp-actions .button{margin-top:0}
 @media(max-width:760px){.lp-smartscreen{padding:16px}.lp-smartscreen ol{grid-template-columns:minmax(0,1fr)}.lp-ss-screen{aspect-ratio:auto;min-height:92px}}
+.lp-verified{position:relative;margin:18px 0 0;padding:12px 14px 12px 42px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:.92rem}
+.lp-verified::before{content:"✓";position:absolute;left:14px;top:12px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  background:var(--accent);color:var(--accent-ink);font-size:.7rem;font-weight:800}
+.lp-verified strong{color:var(--text)}
+.lp-verified a{color:var(--text);font-weight:600;white-space:nowrap}
+.lp-smartscreen code{font:.85em var(--font-mono)}

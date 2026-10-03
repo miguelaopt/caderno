@@ -14,6 +14,13 @@ fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, { headers: { 
         el.textContent = `, versão ${version}${release.prerelease ? ' de pré-lançamento' : ''}`;
       for (const el of document.querySelectorAll('[data-release-size]'))
         el.textContent = ` (${Math.round(asset.size / 1048576)} MB)`;
+      // As notas da release levam o SHA-256 do instalador (workflow Windows desktop); a página do
+      // VirusTotal para esse hash mostra a análise feita quando a versão foi publicada.
+      const sha = /SHA-256:\s*`([0-9a-f]{64})`/i.exec(release.body || '')?.[1];
+      if (sha) {
+        for (const link of document.querySelectorAll('[data-virustotal]')) link.href = `https://www.virustotal.com/gui/file/${sha.toLowerCase()}`;
+        for (const el of document.querySelectorAll('[data-virustotal-version]')) el.textContent = ` da versão ${version}`;
+      }
       return;
     }
   })

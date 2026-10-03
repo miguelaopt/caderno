@@ -72,7 +72,7 @@ Ainda não assinado; o código e o build são públicos no GitHub Actions. Cada 
 
 - o **SHA-256** do instalador, também num ficheiro `…-SHA256.txt` junto do `.exe`;
 - a ligação à execução do GitHub Actions que o compilou;
-- a análise no VirusTotal, quando disponível.
+- a análise no VirusTotal: cada versão é enviada automaticamente quando é publicada.
 
 Para confirmar o ficheiro descarregado, no PowerShell:
 
