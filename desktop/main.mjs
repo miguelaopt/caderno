@@ -33,7 +33,8 @@ function secureWindow(origin) {
         title: 'PDF · Caderno', width: 1100, height: 800,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, plugins: true },
       } };
-    if (target.protocol === 'https:') shell.openExternal(url).catch(() => {});
+    // mailto: abre o programa de email predefinido (ligação «Enviar email» no Sobre).
+    if (target.protocol === 'https:' || target.protocol === 'mailto:') shell.openExternal(url).catch(() => {});
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {

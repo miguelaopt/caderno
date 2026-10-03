@@ -21,6 +21,6 @@ npm run typecheck
 npm test
 ```
 
-Inclui um teste quando corrigires um comportamento que possa regredir, sobretudo isolamento entre contas, pagamentos, credenciais ou integração com fornecedores de IA. Não juntes PDFs, tokens, bases de dados ou capturas com dados reais ao repositório.
+Inclui um teste quando corrigires um comportamento que possa regredir, sobretudo isolamento entre contas, credenciais ou integração com fornecedores de IA. Não juntes PDFs, tokens, bases de dados ou capturas com dados reais ao repositório.
 
 Para uma funcionalidade maior, abre primeiro uma issue com o problema, a proposta e o impacto na privacidade dos dados de estudo. Usa [SECURITY.md](SECURITY.md) para falhas de segurança.

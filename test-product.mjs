@@ -8,7 +8,7 @@ import { once } from 'node:events';
 import { openProductDb } from './lib/product-db.mjs';
 import { encryptToken, decryptToken } from './lib/product-security.mjs';
 import { analyzeFile, parseAnalysis, citedSources } from './lib/product-ai.mjs';
-import { generateAi, saveAiSettings, aiSettings, userAiClient, deleteAiSettings } from './lib/product-ai-provider.mjs';
+import { generateAi, saveAiSettings, aiSettings, userAiClient, deleteAiSettings, testAi } from './lib/product-ai-provider.mjs';
 
 const temp = await mkdtemp(join(tmpdir(), 'caderno-test-'));
 const db = openProductDb(join(temp, 'schema.db'));
@@ -143,7 +143,7 @@ try {
   const invalidConnect = await request('/api/connect', { cookie: alice, method: 'POST',
     json: { username: 'aluna', password: 'errada' } });
   assert.equal(invalidConnect.status, 400);
-  assert.match((await invalidConnect.json()).erro, /CREDENCIAIS_INVALIDAS/);
+  assert.match((await invalidConnect.json()).erro, /SSO.*Cadeira sem Moodle/, 'login recusado explica o SSO e a alternativa manual');
   const connected = await request('/api/connect', { cookie: alice, method: 'POST',
     json: { username: 'aluna', password: 'segredo-moodle' } });
   assert.equal(connected.status, 200);
@@ -287,6 +287,17 @@ try {
     };
     assert.deepEqual(await generateAi(userAiClient(cacheDb, userId, 'question'), 'Sistema', 'Texto', 100),
       { text: '{"ok":true}', usage: { input_tokens: 7, output_tokens: 5 }, truncated: false });
+    const models = [];
+    globalThis.fetch = async (url, options) => {
+      models.push(JSON.parse(options.body).model);
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { status: 200 });
+    };
+    await testAi(cacheDb, userId);
+    assert.deepEqual(models, ['model-a', 'model-b'], 'o teste experimenta os dois modelos');
+    globalThis.fetch = async () => new Response('{}', { status: 401 });
+    await assert.rejects(testAi(cacheDb, userId), /chave não é válida/, 'chave errada tem mensagem clara');
+    globalThis.fetch = async () => new Response('{}', { status: 404 });
+    await assert.rejects(testAi(cacheDb, userId), /model-a/, 'modelo inexistente é nomeado');
   } finally { globalThis.fetch = originalFetch; }
   delete process.env.AI_ALLOWED_BASE_URLS;
   deleteAiSettings(cacheDb, userId);

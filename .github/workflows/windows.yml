@@ -42,15 +42,48 @@ jobs:
       # Uma tag v* publica o instalador numa release. O site lê-a pela API do GitHub e a app
       # instalada usa o latest.yml para se atualizar. Tags com hífen ficam como pré-lançamento
       # e não chegam às atualizações automáticas.
+      # O instalador não é assinado: as notas levam o SHA-256 e a análise do VirusTotal para quem
+      # quiser confirmar que o ficheiro é o que o GitHub Actions compilou. O envio ao VirusTotal só
+      # acontece se o segredo VT_API_KEY existir (chave gratuita em virustotal.com).
       - name: Publicar release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
         run: |
-          $installer = (Get-ChildItem release/Caderno-*-Windows-x64.exe | Select-Object -First 1).FullName
-          $files = @($installer, "$installer.blockmap", 'release/latest.yml')
+          $installer = Get-ChildItem release/Caderno-*-Windows-x64.exe | Select-Object -First 1
+          $sha = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          $sums = "release/$($installer.BaseName)-SHA256.txt"
+          "$sha  $($installer.Name)" | Set-Content -Encoding utf8NoBOM $sums
+          $files = @($installer.FullName, "$($installer.FullName).blockmap", 'release/latest.yml', $sums)
           foreach ($file in $files) { if (-not (Test-Path $file)) { throw "Falta $file para as atualizações automáticas" } }
-          $flags = @('--generate-notes', '--title', 'Caderno ${{ github.ref_name }}', '--notes', 'Code signing policy: https://github.com/miguelaopt/caderno#code-signing-policy')
+          $vtLine = "- Envia o ficheiro para [virustotal.com](https://www.virustotal.com) e compara o SHA-256."
+          if ($env:VT_API_KEY) {
+            $upload = (Invoke-RestMethod https://www.virustotal.com/api/v3/files/upload_url -Headers @{ 'x-apikey' = $env:VT_API_KEY }).data
+            curl.exe --fail --silent --show-error -H "x-apikey: $env:VT_API_KEY" -F "file=@$($installer.FullName)" $upload | Out-Null
+            if ($LASTEXITCODE) { throw 'Falhou o envio ao VirusTotal' }
+            $vtLine = "- [Análise no VirusTotal](https://www.virustotal.com/gui/file/$sha)"
+          }
+          @"
+          ## Instalar
+
+          1. Descarrega ``$($installer.Name)`` em baixo.
+          2. O instalador ainda não tem assinatura de código, por isso o Windows mostra **«O Windows protegeu o seu PC»**. Carrega em **Mais informações** e depois em **Executar mesmo assim**.
+          3. Quem já tem o Caderno instalado recebe esta versão pela atualização automática.
+
+          ## Verificar o ficheiro
+
+          - SHA-256: ``$sha``
+          $vtLine
+          - Compilado a partir do código público pelo [GitHub Actions](https://github.com/miguelaopt/caderno/actions/runs/${{ github.run_id }}).
+
+          No PowerShell: ``Get-FileHash .\$($installer.Name)`` tem de mostrar o mesmo SHA-256.
+
+          Problemas: [abrir uma issue](https://github.com/miguelaopt/caderno/issues/new?template=problema.yml) ou escrever para workmfpt@gmail.com.
+
+          ## Alterações
+          "@ | Set-Content -Encoding utf8NoBOM release/notes.md
+          $flags = @('--generate-notes', '--title', 'Caderno ${{ github.ref_name }}', '--notes-file', 'release/notes.md')
           if ('${{ github.ref_name }}' -like '*-*') { $flags += '--prerelease' }
           gh release create '${{ github.ref_name }}' @files @flags

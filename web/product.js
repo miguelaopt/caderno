@@ -22,6 +22,7 @@ let explanationCourse = null;
 let explanationFile = null;
 let explanationLoading = null;
 let explanationError = null;
+let moodleError = null;
 // Pedidos demorados em curso (IA, análise) e quando começaram, para mostrar o tempo que já passou.
 const busy = new Map();
 let practiceDeck = null;
@@ -168,12 +169,15 @@ const links = {
   issues: () => `https://github.com/miguelaopt/caderno/issues/new?template=problema.yml${state.version ? `&versao=${encodeURIComponent(state.version)}` : ''}`,
   kofi: 'https://ko-fi.com/miguelaopt',
   author: 'https://github.com/miguelaopt',
+  // Para quem não tem conta no GitHub. O assunto leva a versão para saber de que release se fala.
+  email: () => `mailto:workmfpt@gmail.com?subject=${encodeURIComponent(`Caderno ${state.version || ''}`.trim())}`,
 };
 const aboutPanel = () => `<section class="panel about"><h2>Sobre o Caderno</h2>
   <p class="muted">Feito por <a href="${links.author}" target="_blank" rel="noopener">Miguel Ferreira</a>, estudante de Engenharia Informática, para estudar as próprias cadeiras. É gratuito e de código aberto.</p>
   <div class="about-actions"><a class="button" href="${links.issues()}" target="_blank" rel="noopener">Reportar um problema</a>
+    <a class="button" href="${links.email()}" target="_blank" rel="noopener">Enviar email</a>
     <a class="button coffee" href="${links.kofi}" target="_blank" rel="noopener">☕ Paga-me um café</a></div>
-  <p class="hint">Ao reportar, diz o que estavas a fazer e o que apareceu. Não incluas a tua chave de IA nem dados de colegas.</p></section>`;
+  <p class="hint">Sem conta no GitHub? Escreve para <a href="${links.email()}" target="_blank" rel="noopener">workmfpt@gmail.com</a>. Diz o que estavas a fazer e o que apareceu. Não incluas a tua chave de IA, palavras-passe nem dados de colegas.</p></section>`;
 
 const helpNote = (title, items) => `<details class="help"><summary>${title}</summary><ul>${items.map((item) => `<li>${item}</li>`).join('')}</ul></details>`;
 
@@ -262,7 +266,8 @@ function moodlePanel() {
       ${state.connection ? '<p class="hint">Para mudar o endereço, desliga primeiro o Moodle nas Definições.</p>' : '<p class="hint">A página inicial da plataforma da tua instituição, por exemplo https://moodle.escola.pt.</p>'}` : ''}
     ${canConnect ? `<form id="connect-form"><label>Utilizador Moodle<input name="username" type="text" autocomplete="username" maxlength="254" required></label>
       <label>Palavra-passe Moodle<input name="password" type="password" autocomplete="current-password" required></label><button class="primary">${state.connection ? 'Renovar ligação' : 'Ligar Moodle'}</button></form>
-      <p class="hint">A palavra-passe serve só para obter uma chave de acesso e não fica guardada. Contas com autenticação única (SSO) podem não conseguir ligar.</p>` : ''}</section>`;
+      ${moodleError ? `<p class="notice error" role="alert">${esc(moodleError)}</p>` : ''}
+      <p class="hint">A palavra-passe serve só para obter uma chave de acesso e não fica guardada. Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), esta ligação não funciona: cria as cadeiras à mão.</p>` : ''}</section>`;
 }
 
 const manualPanel = () => `<section class="panel"><h2>Cadeira sem Moodle</h2><p class="muted">Cria a cadeira e envia os ficheiros em Materiais.</p>
@@ -613,7 +618,7 @@ const aiPanel = () => {
     <div class="field-row"><label>Modelo para resumos<input name="summaryModel" list="ai-models" value="${esc(state.ai?.settings?.summary_model || '')}" placeholder="${aiProviders[provider]?.summary || 'ID do modelo'}" required maxlength="120"><small>Corre uma vez por PDF. Um modelo barato chega.</small></label>
     <label>Modelo para explicações<input name="explainModel" list="ai-models" value="${esc(state.ai?.settings?.explain_model || '')}" placeholder="${aiProviders[provider]?.explain || 'ID do modelo'}" required maxlength="120"><small>Corre a cada pergunta. Um modelo mais capaz explica melhor.</small></label></div>
     <label data-base-url ${provider === 'compatible' ? '' : 'hidden'}>URL base<input name="baseUrl" type="url" value="${esc(state.ai?.settings?.base_url || '')}" placeholder="https://api.exemplo.com/v1"></label>
-    <div class="row"><button class="primary">Guardar chave</button>${state.ai?.settings ? '<button type="button" data-action="ai-key-delete">Remover chave</button>' : ''}</div></form>
+    <div class="row"><button class="primary">Guardar chave</button>${state.ai?.settings ? '<button type="button" data-action="ai-test">Testar chave</button><button type="button" data-action="ai-key-delete">Remover chave</button>' : ''}</div></form>
   <p class="hint">O ID do modelo é o nome técnico, sem espaços, tal como aparece na página de modelos do fornecedor, por exemplo <code>${aiProviders.anthropic.summary}</code>. Se o fornecedor recusar o pedido, o Caderno mostra a razão. Mudar de fornecedor ou de modelos apaga os resumos anteriores, para não misturar resultados.</p></section>`;
 };
 
@@ -763,6 +768,10 @@ async function action(target) {
     await post('/api/ai-consent', { enabled });
     flash(enabled ? 'Análise autorizada. Pede o resumo de um PDF ou analisa os pendentes em Explicações.' : 'Autorização retirada.');
     await refresh();
+  } else if (name === 'ai-test') {
+    flash('A testar a chave…');
+    await post('/api/ai-test', {});
+    flash('A chave funciona: a IA está a responder.');
   } else if (name === 'ai-key-delete') {
     if (!confirm('Remover a chave de IA? Os resumos criados com ela serão apagados.')) return;
     await api('/api/ai-settings', { method: 'DELETE' });
@@ -910,7 +919,11 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'desktop-moodle-form') {
       await post('/api/desktop/moodle-url', { url: data.get('url') }); flash('Endereço do Moodle guardado.'); await refresh();
     } else if (form.id === 'connect-form') {
-      const result = await post('/api/connect', { username: data.get('username'), password: data.get('password') });
+      let result;
+      // O erro fica no painel, e não só no aviso de 6 segundos, porque explica a alternativa sem Moodle.
+      try { result = await post('/api/connect', { username: data.get('username'), password: data.get('password') }); }
+      catch (error) { moodleError = error.message; render(); return; }
+      moodleError = null;
       form.reset(); flash(`${result.count} cadeiras encontradas. Escolhe as que queres acompanhar.`); await refresh();
     } else if (form.id === 'manual-course-form') {
       await post('/api/manual-course', { name: data.get('name') }); flash('Cadeira criada.'); await refresh();
@@ -925,7 +938,10 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'ai-settings-form') {
       await post('/api/ai-settings', { provider: data.get('provider'), apiKey: data.get('apiKey'),
         summaryModel: data.get('summaryModel'), explainModel: data.get('explainModel'), baseUrl: data.get('baseUrl') });
-      form.reset(); flash('Chave de IA guardada.'); await refresh();
+      form.reset(); await refresh();
+      flash('Chave guardada. A testar…');
+      try { await post('/api/ai-test', {}); flash('Chave guardada e testada: a IA está a responder.'); }
+      catch (error) { flash(`Chave guardada, mas o teste falhou. ${error.message}`); }
     } else if (form.id === 'ask-form') {
       answer = null;
       await whileBusy('ask', async () => { answer = await post('/api/ask', { courseId: selectedCourse, question: data.get('question') }); });

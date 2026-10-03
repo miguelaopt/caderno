@@ -1,74 +1,133 @@
+<div align="center">
+
+<img src="web/icon-192.png" alt="" width="96" height="96">
+
 # Caderno
 
-O Caderno é uma aplicação para Windows que junta os materiais e prazos de cada cadeira, monta o plano do dia e oferece flashcards, treino, folha de revisão, simulado, foco e explicações com fontes. Funciona com o Moodle ou com ficheiros enviados à mão. A IA é opcional e usa a chave de cada pessoa. O código é publicado sob a licença MIT.
+**Cada cadeira arrumada, o próximo passo à vista.**
 
-Não há contas nem servidor: a aplicação usa um perfil local e guarda tudo no computador.
+Uma aplicação para Windows que junta os materiais e prazos de cada cadeira, monta o plano do dia
+e te dá flashcards, treino e simulados. Funciona com o Moodle ou com os teus ficheiros.
 
-## Descarregar
+[![Última versão](https://img.shields.io/github/v/release/miguelaopt/caderno?label=vers%C3%A3o&color=d8b56b)](https://github.com/miguelaopt/caderno/releases/latest)
+[![Build](https://github.com/miguelaopt/caderno/actions/workflows/windows.yml/badge.svg)](https://github.com/miguelaopt/caderno/actions/workflows/windows.yml)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-1f3d37)](LICENSE)
+![Windows x64](https://img.shields.io/badge/Windows-x64-1f3d37)
 
-O [site do Caderno](https://caderno.me) (pasta [`site/`](site/)) liga sempre ao instalador mais recente das [releases do GitHub](https://github.com/miguelaopt/caderno/releases), que também podem ser usadas diretamente. Instruções de instalação, cópias de segurança e compilação: [docs/DESKTOP.md](docs/DESKTOP.md).
+[**Descarregar**](https://caderno.me/#descarregar) · [Site](https://caderno.me) · [Instalação](docs/DESKTOP.md) · [Reportar um problema](https://github.com/miguelaopt/caderno/issues/new?template=problema.yml) · [Privacidade](https://caderno.me/privacidade)
 
-O instalador ainda não está assinado; o Windows pode mostrar um aviso de editor desconhecido.
+<img src="site/screenshots/hoje-hero.webp" alt="Ecrã Hoje do Caderno com o plano do dia, os próximos prazos e os ficheiros que mudaram" width="860">
 
-## Code signing policy
+<sub>Ecrã Hoje, com dados fictícios.</sub>
 
-Esta política aplica-se às futuras versões assinadas. A versão 0.3.1 e as anteriores ainda não têm assinatura de código.
+</div>
 
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+## Porquê
 
-- **Autor e responsável pelo código:** [Miguel Ferreira](https://github.com/miguelaopt).
-- **Revisor de contribuições externas:** [Miguel Ferreira](https://github.com/miguelaopt).
-- **Aprovador de cada pedido de assinatura:** [Miguel Ferreira](https://github.com/miguelaopt).
+O material está espalhado por cadeiras e secções do Moodle, não sabes por onde começar hoje e reler PDFs não fica. O Caderno resolve as três coisas no teu computador:
 
-As versões são compiladas a partir do código público no [GitHub Actions](.github/workflows/windows.yml). Cada pedido de assinatura de uma release terá aprovação manual. A [política de privacidade](https://caderno.me/privacidade) explica quando a aplicação comunica com o Moodle, com o fornecedor de IA escolhido e com o GitHub, e identifica os serviços externos usados por ligações do site e da aplicação.
+- **Junta tudo.** Importa ficheiros e prazos do Moodle, ou cria cadeiras e envia os ficheiros à mão.
+- **Diz o que estudar hoje.** O plano usa as datas de exame e o tempo que tens em cada dia, e recalcula quando marcas um bloco como estudado.
+- **Põe-te a recordar, não a reler.** Flashcards com revisão espaçada, treino, simulados e explicações com ligação às páginas do PDF.
 
-## Onde ficam os dados
+Não há conta nem servidor. Os ficheiros, o progresso e as chaves ficam no teu computador. A IA é opcional e usa a tua própria chave, incluindo o plano gratuito da Groq.
 
-- Materiais: `Documentos\Caderno\Materiais\<perfil>\<cadeira>\`. Se o Windows redirecionar Documentos para o OneDrive, o Caderno usa essa pasta.
-- Base de dados, chave local de proteção e definições: `%APPDATA%\Caderno\Dados`.
+## Funcionalidades
 
-Os PDFs importados abrem offline no visualizador da aplicação; os outros formatos abrem com o programa predefinido do Windows (**Abrir no Windows** e **Mostrar na pasta**). Sincronizar o Moodle e usar a IA precisam de internet. Nas Definições podes exportar os dados em JSON ou apagar tudo; a app recomeça com um perfil vazio.
+| | Precisa de IA? |
+|---|:---:|
+| **Hoje**: plano do dia, próximos prazos, o que mudou e distribuição até aos exames | Não |
+| **Materiais**: pesquisa com ou sem acentos, favoritos, visualizador de PDF offline | Não |
+| **Foco**: blocos de tempo associados a um material | Não |
+| **Explicações**: perguntas sobre um PDF, com ligações às páginas usadas | Sim |
+| **Flashcards**: revisão espaçada com uma ou várias cadeiras | Sim |
+| **Treino**: recuperação ativa com autoavaliação | Sim |
+| **Folha de revisão**: resumos e conceitos de uma cadeira numa página | Sim |
+| **Simulado**: até dez perguntas em 20 minutos | Sim |
 
-## Primeiro arranque
+<table>
+<tr>
+<td width="50%"><img src="site/screenshots/explicacoes.webp" alt="Ecrã Explicações"></td>
+<td width="50%"><img src="site/screenshots/flashcards.webp" alt="Ecrã Flashcards com uma carta revelada"></td>
+</tr>
+<tr>
+<td><img src="site/screenshots/materiais.webp" alt="Ecrã Materiais de uma cadeira"></td>
+<td><img src="site/screenshots/simulado.webp" alt="Ecrã Simulado pronto a começar"></td>
+</tr>
+</table>
 
-Um guia de início em cinco passos explica a aplicação, liga o Moodle ou cria cadeiras manuais, define o tempo de estudo por dia e as datas de exame, configura a IA (opcional) e mostra o ciclo de estudo diário. Pode ser reaberto nas Definições ou no menu lateral. Quem atualiza uma instalação que já tinha cadeiras não vê o guia automaticamente.
+## Instalar
 
-## IA com a tua chave
+1. Descarrega `Caderno-<versão>-Windows-x64.exe` em [caderno.me](https://caderno.me/#descarregar) ou nas [releases](https://github.com/miguelaopt/caderno/releases/latest).
+2. Abre o instalador. Se o Windows mostrar **«O Windows protegeu o seu PC»**, carrega em **Mais informações** e depois em **Executar mesmo assim** (ver abaixo porquê).
+3. Segue o guia de início: cinco passos, cerca de três minutos.
 
-Em **Definições → A tua chave de IA**, escolhe o fornecedor, cola a chave e indica os IDs dos modelos para resumos e explicações. Depois autoriza a análise em separado. A chave é cifrada com AES-256-GCM e não aparece na exportação. Mudar de fornecedor ou de modelos apaga os resumos anteriores para não misturar resultados.
+As versões seguintes instalam-se sozinhas: a app procura atualizações ao abrir e de 4 em 4 horas e pergunta antes de reiniciar. Os teus dados não são tocados.
 
-| Fornecedor | Protocolo usado | URL base |
+Mais detalhes, cópias de segurança e mudança de computador: [docs/DESKTOP.md](docs/DESKTOP.md).
+
+### Instalador sem assinatura
+
+Ainda não assinado; o código e o build são públicos no GitHub Actions. Cada instalador é compilado a partir deste repositório pelo [workflow Windows desktop](.github/workflows/windows.yml), e as notas de cada release mostram:
+
+- o **SHA-256** do instalador, também num ficheiro `…-SHA256.txt` junto do `.exe`;
+- a ligação à execução do GitHub Actions que o compilou;
+- a análise no VirusTotal, quando disponível.
+
+Para confirmar o ficheiro descarregado, no PowerShell:
+
+```powershell
+Get-FileHash .\Caderno-0.3.2-Windows-x64.exe
+```
+
+O valor tem de ser igual ao das notas da release (maiúsculas ou minúsculas, tanto faz).
+
+## Primeiros passos
+
+**Moodle.** Em **Cadeiras**, indica o endereço da plataforma (por exemplo `https://moodle.escola.pt`) e entra com o utilizador e a palavra-passe do Moodle. A palavra-passe serve só para obter uma chave de acesso e não é guardada. A sincronização repete-se de 6 em 6 horas enquanto a app está aberta.
+
+> [!IMPORTANT]
+> Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), a ligação não funciona. Cria as cadeiras à mão em **Cadeira sem Moodle** e envia os ficheiros: o plano, os prazos e a IA funcionam na mesma.
+
+**IA (opcional).** Em **Definições → A tua chave de IA**, escolhe o fornecedor, cria lá uma chave e cola-a. Ao guardar, a app faz um pedido mínimo a cada modelo e explica o erro se a chave, o modelo ou o saldo falharem; o botão **Testar chave** repete esse teste. Depois autoriza a análise em separado.
+
+| Fornecedor | Custo | Protocolo |
 |---|---|---|
-| Anthropic | Messages API | Gerida pelo SDK |
-| OpenAI | Responses API | `https://api.openai.com/v1` |
-| DeepSeek | Chat Completions | `https://api.deepseek.com` |
-| Groq | Chat Completions | `https://api.groq.com/openai/v1` |
-| Outro compatível | Chat Completions | URL HTTPS indicada nas Definições |
+| Groq | Plano gratuito, sem cartão (limite por minuto) | Chat Completions |
+| Anthropic | Pago por uso | Messages API |
+| OpenAI | Pago por uso, à parte do ChatGPT Plus | Responses API |
+| DeepSeek | Pago por uso, muito barato | Chat Completions |
+| Outro compatível | Depende do serviço | Chat Completions, URL HTTPS indicada nas Definições |
 
-Nada é analisado automaticamente: os resumos só são criados quando escolhes **Criar resumo com IA** num PDF ou **Analisar PDFs pendentes** em Explicações. Cada pedido vai do computador para o fornecedor, que o pode cobrar e limitar. Só é enviado texto de PDFs que não foram classificados como sensíveis. Confirma modelos e preços diretamente junto do fornecedor.
+Nada é analisado automaticamente: os resumos só são criados quando pedes **Criar resumo com IA** num PDF ou **Analisar PDFs pendentes** em Explicações. Mudar de fornecedor ou de modelos apaga os resumos anteriores, para não misturar resultados.
 
-## Ligação ao Moodle
+## Privacidade e dados
 
-Em **Cadeiras**, indica o endereço HTTPS da plataforma e depois o utilizador e a palavra-passe. A app pede a `<moodle>/login/token.php` uma chave do serviço `MOODLE_SERVICE` (por defeito `moodle_mobile_app`); a palavra-passe não é guardada. A ligação pode falhar em contas com SSO ou quando o serviço móvel está desativado. A app valida `core_webservice_get_site_info`, usa apenas as funções que a chave anuncia e, para as cadeiras selecionadas, lê `core_course_get_contents` e descarrega os ficheiros suportados. A sincronização repete-se a cada 6 horas enquanto a app estiver aberta.
+| O quê | Onde |
+|---|---|
+| Materiais | `Documentos\Caderno\Materiais\<perfil>\<cadeira>\` (ou a pasta Documentos do OneDrive, se o Windows a redirecionar) |
+| Base de dados, chave local e definições | `%APPDATA%\Caderno\Dados` |
 
-A chave do Moodle fica cifrada. Desligar apaga a cópia local; a revogação no servidor faz-se em **Chaves de segurança** no perfil Moodle.
+- A chave do Moodle e a chave de IA ficam cifradas com AES-256-GCM e não aparecem na exportação.
+- O texto de um PDF só sai do computador quando pedes uma análise, e vai diretamente para o fornecedor de IA que escolheste. PDFs que parecem conter dados de pessoas nunca são enviados.
+- A app comunica apenas com o teu Moodle, com o fornecedor de IA escolhido e com o GitHub, para procurar atualizações. Não há telemetria.
+- Em **Definições** podes exportar tudo em JSON ou apagar tudo.
 
-## Estudar
+Formatos aceites, até 20 MB: PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, DOC, PPT, XLS, TXT, MD, CSV, RTF, EPUB e ZIP. Só os PDFs têm visualizador integrado e análise por IA; PDFs digitalizados sem texto selecionável ainda não são lidos (OCR está no [roadmap](docs/ROADMAP.md)).
 
-O ecrã **Hoje** mostra o plano do dia, os próximos prazos, o que mudou e a distribuição dos próximos dias. O plano funciona sem IA: estima tempo para os PDFs, usa as datas de exame e a disponibilidade de cada dia e recalcula quando um bloco é marcado como estudado.
+A [política de privacidade](https://caderno.me/privacidade) tem os detalhes.
 
-- **Explicações**: perguntas sobre um PDF, com ligações às páginas usadas.
-- **Flashcards**: revisão espaçada, com uma ou várias cadeiras.
-- **Treino**: recuperação ativa com autoavaliação.
-- **Folha de revisão**: resumos e conceitos por cadeira.
-- **Simulado**: até dez perguntas em 20 minutos.
-- **Foco**: blocos de tempo associados a um material.
+## Ajuda e contacto
 
-Flashcards, Treino, Folha de revisão e Simulado usam os resumos e perguntas criados pela IA. São aceites PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, DOC, PPT, XLS, TXT, MD, CSV, RTF, EPUB e ZIP, até 20 MB; só os PDFs têm extração de texto, visualizador integrado e análise. PDFs digitalizados sem texto selecionável podem precisar de OCR.
+- **Encontraste um problema?** [Abre uma issue](https://github.com/miguelaopt/caderno/issues/new?template=problema.yml) ou, sem conta no GitHub, escreve para [workmfpt@gmail.com](mailto:workmfpt@gmail.com?subject=Caderno). Diz o que estavas a fazer e o que apareceu, sem chaves de IA, palavras-passe ou dados de colegas.
+- **Falhas de segurança:** segue o [SECURITY.md](SECURITY.md).
+- **Gostas do Caderno?** Dá uma ⭐ ao repositório ou [paga-me um café](https://ko-fi.com/miguelaopt).
+
+---
 
 ## Desenvolvimento
 
-É necessário Node 24.
+Requer Node 24.
 
 ```bash
 npm ci
@@ -81,28 +140,50 @@ npm run desktop:dev   # abre a aplicação Electron a partir do código
 npm run build       # sintaxe e referências da app e do site
 npm run lint
 npm run typecheck   # TypeScript em modo checkJs
-npm test            # motor antigo, isolamento de contas, perfil local, guia, Moodle simulado
+npm test            # motor antigo, isolamento de contas, perfil local, guia, Moodle e IA simulados
 npm run desktop:dist
 ```
 
-As capturas do site são reais, com dados fictícios: cria uma base temporária com `scripts/seed-screenshot.mjs`, arranca o servidor com `NODE_ENV=desktop` e corre `scripts/capture-screenshots.mjs` (instruções no próprio script). O Chromium do Playwright instala-se com `npx playwright-core install chromium`. Não uses dados de estudantes em material promocional.
+<details>
+<summary><strong>Estrutura do projeto</strong></summary>
 
-## Site
+| Pasta | Conteúdo |
+|---|---|
+| `desktop/` | Processo principal do Electron: janela, perfil local, atualizações automáticas |
+| `scripts/product.mjs` | Servidor HTTP local da app (API e ficheiros) |
+| `lib/` | Moodle, sincronização, plano de estudo, IA, base de dados SQLite e segurança |
+| `web/` | Interface da app, em JavaScript sem framework |
+| `site/` | Site estático [caderno.me](https://caderno.me) |
+| `docs/` | Instalação, lançamento, marketing e roadmap |
 
-A pasta `site/` é estática (HTML, CSS e um pequeno script) e não precisa de build. Na Vercel, cria um projeto ligado a este repositório com **Root Directory** = `site` e sem framework. `site/vercel.json` define URLs limpos e cabeçalhos de segurança. Os botões de download apontam para a última versão conhecida e são atualizados no browser pela API pública do GitHub. A fonte dos títulos é a Newsreader (SIL OFL 1.1, em `site/fonts/` e `web/fonts/`).
+`scripts/analyze.mjs`, `scripts/sync.mjs` e `npm run legacy:serve` pertencem ao sistema pessoal inicial (`data/estudo.db`, `material/`, `ANTHROPIC_API_KEY`) e não fazem parte da app.
 
-## Publicar uma versão
+</details>
 
-1. Atualiza `version` no `package.json` (por exemplo `0.2.0`).
-2. Cria e envia a tag: `git tag v0.2.0 && git push origin v0.2.0`.
-3. O workflow [Windows desktop](.github/workflows/windows.yml) testa, compila numa máquina Windows e cria a release com o instalador. Tags com hífen (`v0.2.0-preview`) ficam marcadas como pré-lançamento.
+<details>
+<summary><strong>Capturas do site</strong></summary>
 
-O site passa a oferecer a nova versão sem alterações.
+As capturas são reais, com dados fictícios: cria uma base temporária com `scripts/seed-screenshot.mjs`, arranca o servidor com `NODE_ENV=desktop` e corre `scripts/capture-screenshots.mjs` (instruções no próprio script). O Chromium do Playwright instala-se com `npx playwright-core install chromium`. Não uses dados de estudantes em material promocional.
 
-## Sistema pessoal antigo
+</details>
 
-`scripts/analyze.mjs`, `scripts/sync.mjs` e `npm run legacy:serve` pertencem ao sistema pessoal inicial, que usa `data/estudo.db`, `material/` e `ANTHROPIC_API_KEY`. Não é migrado para a aplicação.
+<details>
+<summary><strong>Site</strong></summary>
+
+A pasta `site/` é estática (HTML, CSS e um pequeno script) e não precisa de build. Na Vercel, o projeto usa **Root Directory** = `site` e nenhum framework; `site/vercel.json` define URLs limpos e cabeçalhos de segurança. Os botões de download apontam para a última versão conhecida e são atualizados no browser pela API pública do GitHub. A fonte dos títulos é a Newsreader (SIL OFL 1.1, em `site/fonts/` e `web/fonts/`).
+
+</details>
+
+### Publicar uma versão
+
+1. Atualiza `version` no `package.json` (por exemplo `0.3.2`) e faz commit.
+2. Cria e envia a tag: `git tag v0.3.2 && git push origin main v0.3.2`.
+3. O workflow [Windows desktop](.github/workflows/windows.yml) testa, compila numa máquina Windows e cria a release com o instalador, o `latest.yml` das atualizações automáticas e o SHA-256 nas notas. Se o segredo `VT_API_KEY` existir no repositório, envia também o instalador ao VirusTotal e liga a análise nas notas.
+
+Tags com hífen (`v0.4.0-beta`) ficam como pré-lançamento e não chegam às atualizações automáticas. O site passa a oferecer a nova versão sem alterações.
 
 ## Participar
 
-Lê [CONTRIBUTING.md](CONTRIBUTING.md) para preparar alterações e [SECURITY.md](SECURITY.md) para comunicar problemas de segurança. O trabalho pendente está em [docs/ROADMAP.md](docs/ROADMAP.md). A licença está em [LICENSE](LICENSE).
+Lê o [CONTRIBUTING.md](CONTRIBUTING.md) antes de propor alterações. O trabalho pendente está em [docs/ROADMAP.md](docs/ROADMAP.md).
+
+<sub>Feito por [Miguel Ferreira](https://github.com/miguelaopt), estudante de Engenharia Informática. Independente, sem afiliação ao Moodle. Código sob a [licença MIT](LICENSE).</sub>

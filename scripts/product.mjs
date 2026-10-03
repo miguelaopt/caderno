@@ -9,7 +9,7 @@ import { id, hash, passwordHash, passwordMatches, encryptToken, newSession, sess
 import { assertFunctions, storeFile, supportedDocument, syncUser } from '../lib/product-sync.mjs';
 import { dailyPlan } from '../lib/product-plan.mjs';
 import { analyzeFile, askCourse } from '../lib/product-ai.mjs';
-import { aiSettings, aiConfigured, saveAiSettings, deleteAiSettings } from '../lib/product-ai-provider.mjs';
+import { aiSettings, aiConfigured, saveAiSettings, deleteAiSettings, testAi } from '../lib/product-ai-provider.mjs';
 import { callWs, baseUrl, loginWithPassword, nomeLimpo } from '../lib/moodle.mjs';
 
 try { process.loadEnvFile('.env'); } catch {}
@@ -165,6 +165,17 @@ function state(user) {
     plan: dailyPlan(db, user.id), changesSince: preference?.last_seen_at || null };
 }
 
+// Contas com SSO (entrada pela página da instituição, Microsoft ou Google) não têm palavra-passe
+// do Moodle e o token.php recusa-as como «invalidlogin». A alternativa é criar as cadeiras à mão.
+const MANUAL_HINT = 'Podes criar as cadeiras à mão em «Cadeira sem Moodle» e enviar os ficheiros.';
+function moodleLoginError(error) {
+  if (error.errorcode === 'invalidlogin')
+    return new Error(`Utilizador ou palavra-passe incorretos. Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google, a conta usa SSO e o Caderno não consegue ligar. ${MANUAL_HINT}`);
+  if (error.kind === 'SERVICO_MOBILE_DESATIVADO' || error.kind === 'WEBSERVICES_DESATIVADOS')
+    return new Error(`O Moodle da tua instituição não permite ligações de aplicações. ${MANUAL_HINT}`);
+  return error.hint ? new Error(`${error.hint} ${MANUAL_HINT}`) : error;
+}
+
 const routes = {
   'POST /api/register': async (req, res) => {
     noAccountsOnDesktop();
@@ -217,7 +228,9 @@ const routes = {
   'POST /api/connect': async (req, res) => {
     const user = requireUser(req);
     const { username, password } = await jsonBody(req);
-    const token = await loginWithPassword(username, password);
+    let token;
+    try { token = await loginWithPassword(username, password); }
+    catch (error) { throw moodleLoginError(error); }
     const site = await callWs(token, 'core_webservice_get_site_info');
     assertFunctions(site);
     const courses = await callWs(token, 'core_enrol_get_users_courses', { userid: String(site.userid) });
@@ -294,6 +307,11 @@ const routes = {
     const user = requireUser(req);
     const settings = saveAiSettings(db, user.id, await jsonBody(req));
     send(res, { ok: true, settings });
+  },
+  'POST /api/ai-test': async (req, res) => {
+    const user = requireUser(req);
+    await testAi(db, user.id);
+    send(res, { ok: true });
   },
   'DELETE /api/ai-settings': async (req, res) => {
     const user = requireUser(req);

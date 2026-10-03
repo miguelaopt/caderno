@@ -35,7 +35,7 @@
 
   <section id="como" class="lp-section lp-wrap" aria-labelledby="como-title">
     <div class="lp-margin"><span class="lp-number" aria-hidden="true">1</span><span class="lp-margin-label">Como funciona</span>
-      <p class="lp-note">O Moodle é opcional. Contas com autenticação única (SSO) podem não conseguir ligar; nesse caso, envia os ficheiros à mão.</p></div>
+      <p class="lp-note">O Moodle é opcional. Se entras nele pela página da instituição ou com Microsoft ou Google (SSO), a ligação não funciona; cria as cadeiras e envia os ficheiros à mão.</p></div>
     <div class="lp-body"><h2 id="como-title">Do material ao próximo passo</h2>
       <ol class="lp-steps">
         <li><h3>Instala e segue o guia</h3><p>Na primeira vez, um guia curto ajuda-te a juntar as cadeiras, indicar o tempo que tens e, se quiseres, configurar a IA.</p></li>
@@ -88,11 +88,21 @@
           <div class="lp-download-option"><h3>Pelo GitHub</h3><p>Escolhe a versão na página de releases, com as notas de cada uma e as anteriores.</p>
             <a class="button" href="https://github.com/miguelaopt/caderno/releases">Descarregar no GitHub</a></div>
         </div>
-        <p class="lp-small">O ficheiro vem sempre das releases do GitHub. O instalador atual ainda não tem assinatura de código, por isso o Windows pode mostrar um aviso de editor desconhecido. O Caderno planeia usar a <a href="https://signpath.org">SignPath Foundation</a> para assinar futuras versões. <a href="https://github.com/miguelaopt/caderno/blob/main/docs/DESKTOP.md">Instruções de instalação</a> · <a href="https://github.com/miguelaopt/caderno#code-signing-policy">Code signing policy</a>.</p>
+        <div class="lp-smartscreen" id="aviso-windows">
+          <h3>O aviso do Windows</h3>
+          <p>Ainda não assinado; o código e o build são públicos no GitHub Actions. Por isso, na primeira vez, o Windows mostra um ecrã azul a dizer que protegeu o PC.</p>
+          <ol>
+            <li><span class="lp-ss-screen" aria-hidden="true"><b>O Windows protegeu o seu PC</b><u>Mais informações</u></span>Carrega em <strong>Mais informações</strong>, por baixo do texto.</li>
+            <li><span class="lp-ss-screen" aria-hidden="true"><b>Editor: Editor desconhecido</b><i>Executar mesmo assim</i></span>Aparece o botão <strong>Executar mesmo assim</strong>. Carrega nele.</li>
+            <li><span class="lp-ss-screen lp-ss-done" aria-hidden="true"><b>Caderno</b><i>Instalar</i></span>O instalador abre. As atualizações seguintes chegam sozinhas, sem este aviso.</li>
+          </ol>
+          <p class="lp-small">Queres confirmar o ficheiro? Cada release mostra o SHA-256 do instalador, para o comparares no PowerShell ou no VirusTotal. <a href="https://github.com/miguelaopt/caderno#instalador-sem-assinatura">Como verificar</a> · <a href="https://github.com/miguelaopt/caderno/blob/main/docs/DESKTOP.md">Instruções de instalação</a>.</p>
+        </div>
         <dl class="lp-facts">
           <div><dt>Materiais</dt><dd>Em Documentos\Caderno\Materiais. Se o Windows redirecionar Documentos para o OneDrive, o Caderno usa essa pasta.</dd></div>
           <div><dt>Sem internet</dt><dd>Os PDFs já importados abrem no visualizador da aplicação. Resumos, perguntas e flashcards já criados continuam disponíveis.</dd></div>
           <div><dt>Com internet</dt><dd>Sincronizar o Moodle e fazer pedidos à IA.</dd></div>
+          <div><dt>Moodle com SSO</dt><dd>Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google, o Caderno não consegue ligar. Cria as cadeiras à mão e envia os ficheiros: o plano, os prazos e a IA funcionam na mesma.</dd></div>
         </dl></div>
       <div class="lp-windows-side">
         <figure class="lp-tree"><pre aria-label="Exemplo de pastas: Documentos, Caderno, Materiais, a pasta do perfil, a pasta da cadeira Análise de Sistemas e os ficheiros dessa cadeira">Documentos
@@ -131,7 +141,7 @@
     <div class="lp-body lp-open">
       <div><h2 id="codigo-title">Código aberto de verdade</h2>
         <p class="lp-intro">O Caderno é publicado sob a licença MIT. Podes ler o código, compilar a tua própria versão, adaptá-la e propor alterações.</p>
-        <ul class="lp-links"><li><a href="https://github.com/miguelaopt/caderno">Repositório no GitHub</a></li><li><a href="https://github.com/miguelaopt/caderno#readme">README</a></li><li><a href="https://github.com/miguelaopt/caderno#code-signing-policy">Code signing policy</a></li><li><a href="https://github.com/miguelaopt/caderno/issues">Issues</a></li><li><a href="https://github.com/miguelaopt/caderno/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a></li></ul></div>
+        <ul class="lp-links"><li><a href="https://github.com/miguelaopt/caderno">Repositório no GitHub</a></li><li><a href="https://github.com/miguelaopt/caderno#readme">README</a></li><li><a href="https://github.com/miguelaopt/caderno#instalador-sem-assinatura">Verificar o instalador</a></li><li><a href="https://github.com/miguelaopt/caderno/issues">Issues</a></li><li><a href="https://github.com/miguelaopt/caderno/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a></li></ul></div>
       <figure class="lp-code"><pre><code>npm ci
 npm run desktop:dev</code></pre><figcaption>Requer Node 24. O segundo comando abre a aplicação a partir do código.</figcaption></figure>
       <div class="lp-control"><h3>Sem conta, sem servidor</h3>
@@ -147,10 +157,11 @@ npm run desktop:dev</code></pre><figcaption>Requer Node 24. O segundo comando ab
       <p class="lp-intro">Sou o Miguel Ferreira, estudante de Engenharia Informática. Comecei o Caderno para acompanhar as minhas cadeiras do semestre e abri o código para quem quiser estudar da mesma forma.</p>
       <div class="lp-support">
         <div class="lp-support-item"><h3>Encontraste um problema?</h3>
-          <p>Diz o que estavas a fazer e o que apareceu. Respondo no GitHub e as correções chegam pela atualização automática.</p>
-          <a class="button" href="https://github.com/miguelaopt/caderno/issues/new?template=problema.yml">Reportar um problema</a></div>
+          <p>Diz o que estavas a fazer e o que apareceu. Sem conta no GitHub, escreve para <a href="mailto:workmfpt@gmail.com?subject=Caderno">workmfpt@gmail.com</a>. As correções chegam pela atualização automática.</p>
+          <div class="lp-actions"><a class="button" href="https://github.com/miguelaopt/caderno/issues/new?template=problema.yml">Reportar no GitHub</a>
+            <a class="button" href="mailto:workmfpt@gmail.com?subject=Caderno">Enviar email</a></div></div>
         <div class="lp-support-item lp-coffee"><h3>Paga-me um café</h3>
-          <p>O Caderno é gratuito e vai continuar a ser. Se te ajudou num exame, um café ajuda a pagar a assinatura do instalador e o domínio.</p>
+          <p>O Caderno é gratuito e vai continuar a ser. Se te ajudou num exame, um café ajuda a pagar o domínio e as horas que lhe dedico.</p>
           <a class="button primary" href="https://ko-fi.com/miguelaopt">☕ Paga-me um café</a></div>
         <div class="lp-support-item"><h3>Segue o projeto</h3>
           <p>As novidades saem nas releases. Ideias e pedidos também são bem-vindos nas Issues.</p>
@@ -164,6 +175,6 @@ npm run desktop:dev</code></pre><figcaption>Requer Node 24. O segundo comando ab
 </main>
 
 <footer class="lp-footer"><div class="lp-wrap"><p>Feito por <a href="https://github.com/miguelaopt">Miguel Ferreira</a>. Caderno é independente e não é afiliado ao Moodle. Código sob licença MIT.</p>
-  <nav aria-label="Rodapé"><a href="https://github.com/miguelaopt/caderno/issues/new?template=problema.yml">Reportar um problema</a><a href="https://ko-fi.com/miguelaopt">Paga-me um café</a><a href="https://github.com/miguelaopt/caderno">GitHub</a><a href="https://github.com/miguelaopt/caderno/releases">Releases</a><a href="https://github.com/miguelaopt/caderno#readme">Documentação</a><a href="/privacidade">Privacidade e termos</a></nav></div></footer>
+  <nav aria-label="Rodapé"><a href="https://github.com/miguelaopt/caderno/issues/new?template=problema.yml">Reportar um problema</a><a href="mailto:workmfpt@gmail.com?subject=Caderno">Contacto</a><a href="https://ko-fi.com/miguelaopt">Paga-me um café</a><a href="https://github.com/miguelaopt/caderno">GitHub</a><a href="https://github.com/miguelaopt/caderno/releases">Releases</a><a href="https://github.com/miguelaopt/caderno#readme">Documentação</a><a href="/privacidade">Privacidade e termos</a></nav></div></footer>
 </body>
 </html>

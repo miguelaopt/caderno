@@ -206,3 +206,24 @@ button:hover,.button:hover{border-color:var(--accent);background:var(--accent-so
 .legal p,.legal li{color:var(--muted);max-width:68ch}
 .legal strong{color:var(--text)}
 @media(max-width:430px){.lp-long{display:none}}
+
+/* Aviso do Windows (SmartScreen): três ecrãs em miniatura, desenhados em CSS para não envelhecerem como capturas */
+.lp-smartscreen{margin-top:28px;padding:22px;border:1px solid var(--line);border-radius:var(--radius-media);background:#0002}
+.lp-smartscreen h3{margin:0 0 6px;font:500 1.4rem/1.2 var(--font-display)}
+.lp-smartscreen>p{margin:0;color:var(--muted)}
+.lp-smartscreen ol{list-style:none;counter-reset:ss;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:20px 0 0;padding:0}
+.lp-smartscreen li{counter-increment:ss;color:var(--muted);font-size:.92rem}
+.lp-smartscreen li strong{color:var(--text)}
+.lp-ss-screen{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:10px;aspect-ratio:16/10;margin-bottom:10px;padding:12px;
+  border-radius:6px;background:#0b5cad;color:#fff;font-size:.78rem;line-height:1.25;box-shadow:inset 0 0 0 1px #fff2}
+.lp-ss-screen::before{content:counter(ss);position:absolute;top:-9px;left:-9px;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;
+  background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:.8rem}
+.lp-ss-screen b{font-weight:600;font-size:.86rem}
+.lp-ss-screen u{align-self:flex-start;text-underline-offset:2px;outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.lp-ss-screen i{align-self:flex-end;font-style:normal;padding:4px 10px;border:1px solid #fff;border-radius:3px;outline:2px solid var(--accent);outline-offset:3px}
+.lp-ss-done{background:#ffffff12;color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.lp-ss-done i{border-color:var(--accent);background:var(--accent);color:var(--accent-ink);outline:0}
+.lp-smartscreen .lp-small{margin-top:16px}
+.lp-support-item .lp-actions{margin-top:auto;gap:8px}
+.lp-support-item .lp-actions .button{margin-top:0}
+@media(max-width:760px){.lp-smartscreen{padding:16px}.lp-smartscreen ol{grid-template-columns:minmax(0,1fr)}.lp-ss-screen{aspect-ratio:auto;min-height:92px}}

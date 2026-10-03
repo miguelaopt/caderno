@@ -7,11 +7,11 @@ Este documento reúne limitações observadas no código. Não representa uma pr
 - Rever a autenticação Moodle para contas com SSO e disponibilizar uma alternativa de ligação por token sem receber a palavra-passe do aluno.
 - Fazer uma revisão externa de segurança e testar o restauro das cópias de segurança (pasta de dados e materiais).
 - Validar em ambiente real a integração de cada fornecedor de IA suportado e os modelos selecionados por utilizadores. Os testes automáticos usam respostas simuladas.
-- Validar o instalador e o visualizador PDF em Windows 10 e 11 reais, assinar o instalador e documentar atualizações sem perda de dados.
+- Validar o instalador e o visualizador PDF em Windows 10 e 11 reais.
+- Assinar o instalador. A SignPath Foundation recusou a candidatura em outubro de 2026 por falta de reputação pública; voltar a candidatar quando o projeto tiver adoção visível.
 
 ## Melhorias de produto
 
-- Atualizações automáticas da app Windows a partir das releases do GitHub (`electron-updater`), sem perder dados.
 - Versões para macOS (requer conta Apple Developer para assinar e notarizar) e Linux (AppImage).
 - Permitir mais de um servidor Moodle por instalação com validação de destinos e regras de acesso claras.
 - Adicionar OCR para PDFs digitalizados sem texto selecionável.

@@ -2,7 +2,7 @@
 
 O que falta para divulgar o Caderno fora do círculo de colegas, por ordem. O site e o instalador podem continuar públicos na versão 0.3.1; a assinatura e os testes externos bloqueiam a versão 1.0.
 
-Estado a 2026-10-01: versão 0.3.1 publicada, atualizações automáticas a funcionar, site estático na Vercel. A etiqueta `problema` já existe no GitHub. Esta atualização do site inclui nove capturas com dados fictícios e a política de assinatura.
+Estado a 2026-10-03: versão 0.3.1 publicada, atualizações automáticas a funcionar, site estático na Vercel. A SignPath Foundation recusou a candidatura por falta de reputação pública; o lançamento no Reddit avança com o instalador não assinado, com o aviso do Windows explicado passo a passo e o SHA-256 em cada release.
 
 ## Quando usar 1.0
 
@@ -17,12 +17,13 @@ Se surgir uma correção antes disso, publicar uma nova versão `0.3.x` com a al
 ## Lista
 
 - [x] **1. Confirmar a conta Ko-fi `miguelaopt`.** O proprietário confirmou que está pronta; o botão «Paga-me um café» do site e da app aponta para `https://ko-fi.com/miguelaopt`.
-- [ ] **2. Assinar o instalador com a SignPath Foundation.** A política de assinatura faz parte desta atualização. Falta candidatar o projeto e integrar a assinatura após aprovação. Passo a passo abaixo.
+- [ ] **2. Assinar o instalador.** A SignPath Foundation recusou em 2026-10-03 («not enough public visibility») e convidou a voltar a candidatar com mais adoção. Guardar as ligações dos posts, menções e estrelas que vierem do lançamento para a nova candidatura. Entretanto: aviso do Windows explicado no site e nas notas, SHA-256 e VirusTotal em cada release.
 - [ ] **3. Testar com duas ou três pessoas de fora.** Ver [Teste com colegas](#teste-com-colegas).
 - [x] **4. Domínio `caderno.me`.** O proprietário está a terminar a configuração; `https://caderno.me` e `/privacidade` já respondem por HTTPS e redirecionam para `www.caderno.me`.
 - [x] **5. Criar a etiqueta `problema` no GitHub.** Confirmada na API do repositório; o formulário «Reportar um problema» aplica-a.
 - [x] **6. Atualizar as capturas do site** com as Explicações novas e o painel da Groq. As nove imagens foram recriadas a partir de dados fictícios com `scripts/seed-screenshot.mjs` e `scripts/capture-screenshots.mjs`.
 - [x] **7. Rever `site/privacidade.html`**: acrescentadas as ligações externas para o Ko-fi e o GitHub e a consulta de atualizações.
+- [x] **7b. Preparar o lançamento sem assinatura** (2026-10-03): passos do SmartScreen no site, SHA-256 e VirusTotal nas notas das releases (segredo `VT_API_KEY`), email de contacto workmfpt@gmail.com no site e na app, erro do Moodle com SSO a apontar para as cadeiras manuais, teste da chave de IA.
 - [ ] **8. Falar com os serviços de informática** antes de divulgar a uma escola inteira. O Caderno usa o mesmo serviço que a app móvel oficial do Moodle; algumas instituições preferem saber.
 - [ ] **9. Depois de lançar:** ver as Issues duas vezes por semana e escrever notas de versão curtas em cada release.
 
