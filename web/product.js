@@ -651,7 +651,7 @@ const guideSteps = ['Boas-vindas', 'Cadeiras', 'Tempo e exames', 'IA opcional', 
 function guideContent(step) {
   if (step === 0) return `<h1>Bem-vindo ao Caderno</h1>
     <p class="page-lead">O Caderno junta os materiais de cada cadeira e diz-te o que estudar a seguir. Este guia demora uns três minutos; podes saltar passos e voltar a ele nas Definições.</p>
-    <dl class="guide-facts"><div><dt>Fica neste computador</dt><dd>${state.desktop ? `Os ficheiros ficam em <span class="path">${esc(state.materialsDir)}</span>, numa pasta por cadeira. Não há conta nem servidor.` : 'Os ficheiros ficam na pasta de dados desta instalação.'}</dd></div>
+    <dl class="guide-facts"><div><dt>Fica neste computador</dt><dd>${state.desktop ? `Os ficheiros ficam em <span class="path">${esc(state.materialsDir)}</span>, numa pasta por cadeira. Não há conta nem servidor externo.` : 'Os ficheiros ficam na pasta de dados desta instalação.'}</dd></div>
       <div><dt>Funciona sem internet</dt><dd>Os PDFs já importados abrem no visualizador do Caderno. Sincronizar o Moodle e usar a IA precisam de internet.</dd></div>
       <div><dt>A IA é opcional</dt><dd>Cadeiras, plano, prazos e foco funcionam sem IA. Com a tua chave, os PDFs ganham resumos, flashcards e perguntas.</dd></div></dl>`;
   if (step === 1) return `<h1>Junta as tuas cadeiras</h1>

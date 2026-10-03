@@ -30,7 +30,7 @@ O material está espalhado por cadeiras e secções do Moodle, não sabes por on
 - **Diz o que estudar hoje.** O plano usa as datas de exame e o tempo que tens em cada dia, e recalcula quando marcas um bloco como estudado.
 - **Põe-te a recordar, não a reler.** Flashcards com revisão espaçada, treino, simulados e explicações com ligação às páginas do PDF.
 
-Não há conta nem servidor. Os ficheiros, o progresso e as chaves ficam no teu computador. A IA é opcional e usa a tua própria chave, incluindo o plano gratuito da Groq.
+Não há conta nem servidor externo. Os ficheiros, o progresso e as chaves ficam no teu computador. A IA é opcional e usa a tua própria chave, incluindo o plano gratuito da Groq.
 
 ## Funcionalidades
 
