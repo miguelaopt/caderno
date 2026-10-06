@@ -87,7 +87,7 @@ O valor tem de ser igual ao das notas da release (maiúsculas ou minúsculas, ta
 **Moodle.** Em **Cadeiras**, indica o endereço da plataforma (por exemplo `https://moodle.escola.pt`) e entra com o utilizador e a palavra-passe do Moodle. A palavra-passe serve só para obter uma chave de acesso e não é guardada. A sincronização repete-se de 6 em 6 horas enquanto a app está aberta.
 
 > [!IMPORTANT]
-> Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), a ligação não funciona. Cria as cadeiras à mão em **Cadeira sem Moodle** e envia os ficheiros: o plano, os prazos e a IA funcionam na mesma.
+> Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), usa **Entrar pelo browser**. O Moodle abre no teu browser, entras como de costume e, no fim, o browser pergunta se pode abrir o Caderno. A palavra-passe fica no browser. Isto só funciona se a instituição permitir o login da app móvel oficial pelo browser. Se não permitir, cria as cadeiras à mão em **Cadeira sem Moodle** e envia os ficheiros: o plano, os prazos e a IA funcionam na mesma.
 
 **IA (opcional).** Em **Definições → A tua chave de IA**, escolhe o fornecedor, cria lá uma chave e cola-a. Ao guardar, a app faz um pedido mínimo a cada modelo e explica o erro se a chave, o modelo ou o saldo falharem; o botão **Testar chave** repete esse teste. Depois autoriza a análise em separado.
 

@@ -10,7 +10,7 @@ import { assertFunctions, storeFile, supportedDocument, syncUser } from '../lib/
 import { dailyPlan } from '../lib/product-plan.mjs';
 import { analyzeFile, askCourse } from '../lib/product-ai.mjs';
 import { aiSettings, aiConfigured, saveAiSettings, deleteAiSettings, testAi } from '../lib/product-ai-provider.mjs';
-import { callWs, baseUrl, loginWithPassword, nomeLimpo } from '../lib/moodle.mjs';
+import { callWs, baseUrl, loginWithPassword, nomeLimpo, startSsoLogin, tokenFromSsoUrl } from '../lib/moodle.mjs';
 
 try { process.loadEnvFile('.env'); } catch {}
 const db = openProductDb();
@@ -166,14 +166,62 @@ function state(user) {
 }
 
 // Contas com SSO (entrada pela página da instituição, Microsoft ou Google) não têm palavra-passe
-// do Moodle e o token.php recusa-as como «invalidlogin». A alternativa é criar as cadeiras à mão.
+// do Moodle e o token.php recusa-as como «invalidlogin». Na app Windows entram pelo browser;
+// no servidor de desenvolvimento a alternativa é criar as cadeiras à mão.
 const MANUAL_HINT = 'Podes criar as cadeiras à mão em «Cadeira sem Moodle» e enviar os ficheiros.';
 function moodleLoginError(error) {
   if (error.errorcode === 'invalidlogin')
-    return new Error(`Utilizador ou palavra-passe incorretos. Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google, a conta usa SSO e o Caderno não consegue ligar. ${MANUAL_HINT}`);
+    return new Error(`Utilizador ou palavra-passe incorretos. Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), ${desktop ? 'usa «Entrar pelo browser».' : 'esta forma de ligação não funciona.'} ${MANUAL_HINT}`);
   if (error.kind === 'SERVICO_MOBILE_DESATIVADO' || error.kind === 'WEBSERVICES_DESATIVADOS')
     return new Error(`O Moodle da tua instituição não permite ligações de aplicações. ${MANUAL_HINT}`);
   return error.hint ? new Error(`${error.hint} ${MANUAL_HINT}`) : error;
+}
+
+async function connectMoodle(userId, token) {
+  const site = await callWs(token, 'core_webservice_get_site_info');
+  assertFunctions(site);
+  const courses = await callWs(token, 'core_enrol_get_users_courses', { userid: String(site.userid) });
+  db.exec('BEGIN');
+  try {
+    db.prepare(`INSERT INTO moodle_connections(user_id,token_enc,moodle_user_id,site_name,functions_json,connected_at)
+      VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET token_enc=excluded.token_enc,moodle_user_id=excluded.moodle_user_id,
+      site_name=excluded.site_name,functions_json=excluded.functions_json,connected_at=excluded.connected_at,last_error=NULL`)
+      .run(userId, encryptToken(token), site.userid, site.sitename || 'Moodle', JSON.stringify(site.functions), now());
+    const upsert = db.prepare(`INSERT INTO courses(id,user_id,moodle_id,name,shortname,source)
+      VALUES(?,?,?,?,?,'moodle') ON CONFLICT(user_id,moodle_id) DO UPDATE SET name=excluded.name,shortname=excluded.shortname`);
+    for (const course of courses) upsert.run(id(), userId, course.id, nomeLimpo(course.fullname), course.shortname);
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); throw error; }
+  if (db.prepare("SELECT 1 FROM courses WHERE user_id=? AND selected=1 AND source='moodle' LIMIT 1").get(userId))
+    startSync(userId).catch((error) => console.error('Sincronização:', error.message));
+  return courses.length;
+}
+
+// Login pela página da instituição, só na app Windows: um pedido de cada vez. O Electron regista
+// o protocolo moodlemobile:// enquanto o pedido espera e entrega o endereço a finishSsoLogin.
+const SSO_WAIT_MS = 10 * 60 * 1000;
+const SSO_EXPIRED = `O Caderno não recebeu a resposta do Moodle. Se o browser não perguntou se querias abrir o Caderno, a tua instituição pode usar uma app própria e esta forma de ligação não funciona. ${MANUAL_HINT}`;
+let ssoLogin = null;
+let ssoProtocol = { register: () => true, unregister() {} };
+export { SSO_SCHEME } from '../lib/moodle.mjs';
+export function useSsoProtocol(protocol) { ssoProtocol = protocol; }
+
+function closeSso(update) {
+  if (!ssoLogin) return;
+  clearTimeout(ssoLogin.timer);
+  ssoProtocol.unregister();
+  if (update) Object.assign(ssoLogin, update);
+}
+
+export async function finishSsoLogin(address) {
+  const pending = ssoLogin;
+  if (pending?.status !== 'waiting') return;
+  const token = tokenFromSsoUrl(address, pending);
+  closeSso({ status: token ? 'connecting' : 'error',
+    message: token ? undefined : 'A resposta do Moodle não corresponde a este pedido. Tenta outra vez.' });
+  if (!token) return;
+  try { Object.assign(pending, { status: 'ok', count: await connectMoodle(pending.userId, token) }); }
+  catch (error) { Object.assign(pending, { status: 'error', message: moodleLoginError(error).message }); }
 }
 
 const routes = {
@@ -231,23 +279,32 @@ const routes = {
     let token;
     try { token = await loginWithPassword(username, password); }
     catch (error) { throw moodleLoginError(error); }
-    const site = await callWs(token, 'core_webservice_get_site_info');
-    assertFunctions(site);
-    const courses = await callWs(token, 'core_enrol_get_users_courses', { userid: String(site.userid) });
-    db.exec('BEGIN');
-    try {
-      db.prepare(`INSERT INTO moodle_connections(user_id,token_enc,moodle_user_id,site_name,functions_json,connected_at)
-        VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET token_enc=excluded.token_enc,moodle_user_id=excluded.moodle_user_id,
-        site_name=excluded.site_name,functions_json=excluded.functions_json,connected_at=excluded.connected_at,last_error=NULL`)
-        .run(user.id, encryptToken(token), site.userid, site.sitename || 'Moodle', JSON.stringify(site.functions), now());
-      const upsert = db.prepare(`INSERT INTO courses(id,user_id,moodle_id,name,shortname,source)
-        VALUES(?,?,?,?,?,'moodle') ON CONFLICT(user_id,moodle_id) DO UPDATE SET name=excluded.name,shortname=excluded.shortname`);
-      for (const course of courses) upsert.run(id(), user.id, course.id, nomeLimpo(course.fullname), course.shortname);
-      db.exec('COMMIT');
-    } catch (error) { db.exec('ROLLBACK'); throw error; }
-    send(res, { ok: true, count: courses.length });
-    if (db.prepare("SELECT 1 FROM courses WHERE user_id=? AND selected=1 AND source='moodle' LIMIT 1").get(user.id))
-      startSync(user.id).catch((error) => console.error('Sincronização:', error.message));
+    send(res, { ok: true, count: await connectMoodle(user.id, token) });
+  },
+  'POST /api/connect/sso': async (req, res) => {
+    const user = requireUser(req);
+    if (!desktop) throw Object.assign(new Error('Esta opção só existe na aplicação Windows.'), { status: 404 });
+    let launch;
+    try { launch = await startSsoLogin(); }
+    catch (error) { throw moodleLoginError(error); }
+    closeSso();
+    ssoLogin = null;
+    if (!ssoProtocol.register()) throw new Error('O Windows não deixou o Caderno receber a resposta do login.');
+    ssoLogin = { userId: user.id, passport: launch.passport, wwwroot: launch.wwwroot, status: 'waiting',
+      timer: setTimeout(() => closeSso({ status: 'error', message: SSO_EXPIRED }), SSO_WAIT_MS).unref() };
+    send(res, { ok: true, url: launch.url });
+  },
+  'GET /api/connect/sso': async (req, res) => {
+    const user = requireUser(req);
+    if (ssoLogin?.userId !== user.id) return send(res, { status: 'none' });
+    const { status, count, message } = ssoLogin;
+    if (status === 'ok' || status === 'error') ssoLogin = null;
+    send(res, { status, count, message });
+  },
+  'DELETE /api/connect/sso': async (req, res) => {
+    const user = requireUser(req);
+    if (ssoLogin?.userId === user.id) { closeSso(); ssoLogin = null; }
+    send(res, { ok: true });
   },
   'POST /api/disconnect': async (req, res) => {
     const user = requireUser(req);

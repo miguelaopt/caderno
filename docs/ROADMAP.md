@@ -4,7 +4,7 @@ Este documento reúne limitações observadas no código. Não representa uma pr
 
 ## Prioridade alta
 
-- Rever a autenticação Moodle para contas com SSO e disponibilizar uma alternativa de ligação por token sem receber a palavra-passe do aluno.
+- Validar o login pelo browser (SSO) em Moodles reais com SAML, OIDC e OAuth 2. Os testes automáticos simulam o `launch.php` e a resposta `moodlemobile://`. Instituições com app própria (`forcedurlscheme`) devolvem a chave noutro protocolo e ainda não são suportadas.
 - Fazer uma revisão externa de segurança e testar o restauro das cópias de segurança (pasta de dados e materiais).
 - Validar em ambiente real a integração de cada fornecedor de IA suportado e os modelos selecionados por utilizadores. Os testes automáticos usam respostas simuladas.
 - Validar o instalador e o visualizador PDF em Windows 10 e 11 reais.

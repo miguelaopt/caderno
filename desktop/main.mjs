@@ -10,6 +10,23 @@ app.setAppUserModelId('pt.caderno.desktop');
 
 let server;
 let mainWindow;
+let product;
+let ssoProtocol;
+
+// Login pela página da instituição: no fim o browser devolve a chave ao Caderno por moodlemobile://,
+// o protocolo da app móvel oficial. Só fica registado enquanto um login espera resposta.
+function protocolClient(scheme) {
+  let registered = false;
+  // Em desenvolvimento (electron .) o Windows tem de abrir o Electron com o caminho da app.
+  const set = () => process.defaultApp ? app.setAsDefaultProtocolClient(scheme, process.execPath, [app.getAppPath()])
+    : app.setAsDefaultProtocolClient(scheme);
+  const remove = () => process.defaultApp ? app.removeAsDefaultProtocolClient(scheme, process.execPath, [app.getAppPath()])
+    : app.removeAsDefaultProtocolClient(scheme);
+  return {
+    register: () => (registered = set()),
+    unregister: () => { if (registered) remove(); registered = false; },
+  };
+}
 
 function localKey(dataDir) {
   const path = join(dataDir, 'encryption.key');
@@ -83,8 +100,10 @@ async function start() {
     if (typeof config.moodleUrl === 'string') process.env.MOODLE_URL = config.moodleUrl;
   }
   process.chdir(process.resourcesPath);
-  const product = await import('../scripts/product.mjs');
+  product = await import('../scripts/product.mjs');
   server = product.server;
+  ssoProtocol = protocolClient(product.SSO_SCHEME);
+  product.useSsoProtocol(ssoProtocol);
   const address = await product.ready;
   const origin = `http://127.0.0.1:${address.port}`;
   // Perfil único: a sessão só existe nesta janela, nunca noutro browser do computador.
@@ -97,11 +116,16 @@ async function start() {
 }
 
 if (app.requestSingleInstanceLock()) {
-  app.on('second-instance', () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
+  app.on('second-instance', (_event, commandLine) => {
+    // O Windows abre uma segunda instância com o endereço moodlemobile://token=… do login.
+    const ssoUrl = product && commandLine.find((arg) => arg.startsWith(`${product.SSO_SCHEME}://`));
+    if (ssoUrl) product.finishSsoLogin(ssoUrl).catch((error) => console.error('Login pela instituição:', error.message));
+    if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
+  });
   app.whenReady().then(start).catch((error) => {
     dialog.showErrorBox('Não foi possível abrir o Caderno', error.message);
     app.quit();
   });
   app.on('window-all-closed', () => app.quit());
-  app.on('before-quit', () => server?.close());
+  app.on('before-quit', () => { server?.close(); ssoProtocol?.unregister(); });
 } else app.quit();

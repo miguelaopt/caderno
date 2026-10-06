@@ -23,6 +23,8 @@ let explanationFile = null;
 let explanationLoading = null;
 let explanationError = null;
 let moodleError = null;
+let ssoWaiting = false;
+let ssoPoll = null;
 // Pedidos demorados em curso (IA, análise) e quando começaram, para mostrar o tempo que já passou.
 const busy = new Map();
 let practiceDeck = null;
@@ -267,7 +269,30 @@ function moodlePanel() {
     ${canConnect ? `<form id="connect-form"><label>Utilizador Moodle<input name="username" type="text" autocomplete="username" maxlength="254" required></label>
       <label>Palavra-passe Moodle<input name="password" type="password" autocomplete="current-password" required></label><button class="primary">${state.connection ? 'Renovar ligação' : 'Ligar Moodle'}</button></form>
       ${moodleError ? `<p class="notice error" role="alert">${esc(moodleError)}</p>` : ''}
-      <p class="hint">A palavra-passe serve só para obter uma chave de acesso e não fica guardada. Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), esta ligação não funciona: cria as cadeiras à mão.</p>` : ''}</section>`;
+      <p class="hint">A palavra-passe serve só para obter uma chave de acesso e não fica guardada.${state.desktop ? '' : ' Se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO), esta ligação não funciona: cria as cadeiras à mão.'}</p>
+      ${state.desktop ? ssoPanel() : ''}` : ''}</section>`;
+}
+
+// Login pela página da instituição (SSO): o Moodle abre no browser e, no fim, devolve a chave ao Caderno.
+const ssoPanel = () => ssoWaiting
+  ? `<div class="notice" role="status"><p>Entra no Moodle no browser que abriu. No fim, quando o browser perguntar se pode abrir o Caderno, aceita.</p><button data-action="moodle-sso-cancel">Cancelar</button></div>`
+  : `<div class="row"><button data-action="moodle-sso">Entrar pelo browser</button></div>
+    <p class="hint">Usa esta opção se entras no Moodle pela página da tua instituição ou com a conta Microsoft ou Google (SSO). Escreves a palavra-passe no browser, não no Caderno.</p>`;
+
+async function waitForSso() {
+  clearTimeout(ssoPoll);
+  if (!ssoWaiting) return;
+  let result;
+  try { result = await api('/api/connect/sso'); } catch { result = { status: 'waiting' }; }
+  if (!ssoWaiting) return;
+  if (result.status === 'waiting' || result.status === 'connecting') {
+    ssoPoll = setTimeout(() => waitForSso().catch((error) => flash(error.message)), 2000);
+    return;
+  }
+  ssoWaiting = false;
+  if (result.status === 'ok') { moodleError = null; flash(`${result.count} cadeiras encontradas. Escolhe as que queres acompanhar.`); }
+  else if (result.status === 'error') moodleError = result.message;
+  await refresh();
 }
 
 const manualPanel = () => `<section class="panel"><h2>Cadeira sem Moodle</h2><p class="muted">Cria a cadeira e envia os ficheiros em Materiais.</p>
@@ -796,6 +821,17 @@ async function action(target) {
     const result = await post('/api/disconnect', {});
     flash('Moodle desligado. Revoga a chave na página Chaves de segurança do Moodle.');
     window.open(result.revokeUrl, '_blank', 'noopener'); await refresh();
+  } else if (name === 'moodle-sso') {
+    let result;
+    // Como no formulário, o erro fica no painel porque explica a alternativa.
+    try { result = await post('/api/connect/sso', {}); }
+    catch (error) { moodleError = error.message; render(); return; }
+    moodleError = null; ssoWaiting = true;
+    window.open(result.url, '_blank', 'noopener');
+    render(); await waitForSso();
+  } else if (name === 'moodle-sso-cancel') {
+    ssoWaiting = false; clearTimeout(ssoPoll);
+    await api('/api/connect/sso', { method: 'DELETE' }); render();
   }
 }
 

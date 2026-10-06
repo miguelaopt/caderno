@@ -9,6 +9,8 @@ import { openProductDb } from './lib/product-db.mjs';
 import { encryptToken, decryptToken } from './lib/product-security.mjs';
 import { analyzeFile, parseAnalysis, citedSources } from './lib/product-ai.mjs';
 import { generateAi, saveAiSettings, aiSettings, userAiClient, deleteAiSettings, testAi } from './lib/product-ai-provider.mjs';
+import { startSsoLogin, tokenFromSsoUrl } from './lib/moodle.mjs';
+import { createHash } from 'node:crypto';
 
 const temp = await mkdtemp(join(tmpdir(), 'caderno-test-'));
 const db = openProductDb(join(temp, 'schema.db'));
@@ -29,6 +31,8 @@ assert.deepEqual(citedSources('Ideia [2]. Outra [1, 9].', excerpts).map((source)
 
 const moodleToken = 'testMoodleToken12345678901234567890';
 const moodleRequests = [];
+let moodleTypeOfLogin = 2;
+let moodleProviders = [];
 function makePdf() {
   const content = 'BT /F1 14 Tf 72 720 Td (Analise de Sistemas contem requisitos, casos de uso e modelos de dados.) Tj ET';
   const objects = [
@@ -62,7 +66,10 @@ const moodle = createServer(async (req, res) => {
   const params = new URLSearchParams(Buffer.concat(chunks).toString());
   moodleRequests.push({ path: req.url, params: Object.fromEntries(params) });
   res.setHeader('content-type', 'application/json');
-  if (req.url === '/login/token.php') {
+  if (req.url === '/lib/ajax/service-nologin.php?info=tool_mobile_get_public_config') {
+    res.end(JSON.stringify([{ error: false, data: { wwwroot: moodleUrl, httpswwwroot: moodleUrl, typeoflogin: moodleTypeOfLogin,
+      launchurl: `${moodleUrl}/admin/tool/mobile/launch.php`, enablewebservices: 1, enablemobilewebservice: 1, identityproviders: moodleProviders } }]));
+  } else if (req.url === '/login/token.php') {
     res.end(JSON.stringify(params.get('username') === 'aluna' && params.get('password') === 'segredo-moodle'
       && params.get('service') === 'personal_service'
       ? { token: moodleToken } : { error: 'Invalid login', errorcode: 'invalidlogin' }));
@@ -383,7 +390,81 @@ try {
   } finally {
     if (ossChild.exitCode === null) { ossChild.kill(); await once(ossChild, 'exit').catch(() => {}); }
   }
-  console.log('ok — produto: cifra, isolamento de contas, perfil local, guia e eliminação');
+
+  // Login pela página da instituição (SSO), como a app móvel: launch.php e depois moodlemobile://token=….
+  // O processo filho faz de Electron: regista o protocolo e entrega a finishSsoLogin cada endereço lido do stdin.
+  const md5 = (text) => createHash('md5').update(text).digest('hex');
+  const ssoAddress = (text) => `moodlemobile://token=${Buffer.from(text).toString('base64')}`;
+  assert.equal((await request('/api/connect/sso', { cookie: bob, method: 'POST', json: {} })).status, 404, 'só a app Windows recebe o login no browser');
+  const ssoChild = spawn(process.execPath, ['--input-type=module', '-e', `
+    const app = await import('./scripts/product.mjs');
+    app.useSsoProtocol({ register: () => { console.log('PROTOCOLO on'); return true; }, unregister: () => console.log('PROTOCOLO off') });
+    await app.ready; console.log('SESSAO ' + app.localSession());
+    for await (const line of (await import('node:readline')).createInterface({ input: process.stdin })) await app.finishSsoLogin(line);`],
+  { cwd: process.cwd(), env: { ...process.env, PORT: '0', NODE_ENV: 'desktop', DESKTOP_CONFIG_PATH: join(temp, 'sso-config.json'),
+    MOODLE_URL: moodleUrl, MOODLE_SERVICE: 'personal_service', PRODUCT_DB_PATH: join(temp, 'sso.db'), PRODUCT_FILES_DIR: join(temp, 'sso-files') },
+  stdio: ['pipe', 'pipe', 'pipe'] });
+  try {
+    let ssoOutput = '';
+    const [ssoPort, ssoSession] = await new Promise((resolve, reject) => {
+      ssoChild.stdout.on('data', (chunk) => {
+        ssoOutput += chunk.toString();
+        const port = /localhost:(\d+)/.exec(ssoOutput);
+        const session = /SESSAO (\S+)/.exec(ssoOutput);
+        if (port && session) resolve([Number(port[1]), session[1]]);
+      });
+      ssoChild.on('exit', (code) => reject(new Error(`Servidor SSO saiu com código ${code}`)));
+      setTimeout(() => reject(new Error('Servidor SSO não iniciou')), 5000).unref();
+    });
+    const ssoFetch = (path, method = 'GET') => fetch(`http://127.0.0.1:${ssoPort}${path}`, { method,
+      headers: { cookie: `caderno_session=${ssoSession}`, 'content-type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+    const ssoResult = async () => {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const result = await (await ssoFetch('/api/connect/sso')).json();
+        if (result.status !== 'waiting' && result.status !== 'connecting') return result;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw new Error('O login SSO não terminou.');
+    };
+    const start = async () => {
+      const response = await ssoFetch('/api/connect/sso', 'POST');
+      assert.equal(response.status, 200);
+      const launch = new URL((await response.json()).url);
+      assert.equal(`${launch.origin}${launch.pathname}`, `${moodleUrl}/admin/tool/mobile/launch.php`);
+      assert.equal(launch.searchParams.get('service'), 'personal_service');
+      assert.equal(launch.searchParams.get('urlscheme'), 'moodlemobile');
+      return launch.searchParams.get('passport');
+    };
+    await start();
+    ssoChild.stdin.write(`${ssoAddress(`${'0'.repeat(32)}:::${moodleToken}`)}\n`);
+    assert.match((await ssoResult()).message, /não corresponde/, 'uma resposta assinada para outro pedido é recusada');
+    assert.equal((await (await ssoFetch('/api/connect/sso')).json()).status, 'none');
+    const passport = await start();
+    // O Windows pode acrescentar uma barra final ao endereço.
+    ssoChild.stdin.write(`${ssoAddress(`${md5(moodleUrl + passport)}:::${moodleToken}:::privado`)}/\n`);
+    const connected = await ssoResult();
+    assert.equal(connected.status, 'ok', connected.message);
+    assert.equal(connected.count, 1);
+    const ssoState = await (await ssoFetch('/api/state')).json();
+    assert.equal(ssoState.connection.site_name, 'Moodle de teste');
+    assert.equal(ssoOutput.match(/PROTOCOLO on/g)?.length, 2);
+    assert.equal(ssoOutput.match(/PROTOCOLO off/g)?.length, 2, 'o protocolo deixa de estar registado quando o login termina');
+    await start();
+    assert.equal((await ssoFetch('/api/connect/sso', 'DELETE')).status, 200);
+    assert.equal((await (await ssoFetch('/api/connect/sso')).json()).status, 'none', 'cancelar descarta o pedido');
+  } finally {
+    if (ssoChild.exitCode === null) { ssoChild.kill(); await once(ssoChild, 'exit').catch(() => {}); }
+  }
+  Object.assign(process.env, { MOODLE_URL: moodleUrl, MOODLE_SERVICE: 'personal_service', MOODLE_REQUEST_GAP_MS: '0' });
+  const sso = await startSsoLogin();
+  assert.equal(tokenFromSsoUrl(ssoAddress(`${md5(moodleUrl + sso.passport)}:::${moodleToken}`), sso), moodleToken);
+  assert.equal(tokenFromSsoUrl(ssoAddress(`${md5(moodleUrl + sso.passport)}:::<script>`), sso), null);
+  assert.equal(tokenFromSsoUrl(`https://example.test/?token=${moodleToken}`, sso), null);
+  moodleTypeOfLogin = 1;
+  await assert.rejects(startSsoLogin(), /utilizador e palavra-passe/, 'sem login pelo browser, o launch.php recusaria o pedido');
+  moodleProviders = [{ name: 'Microsoft', url: `${moodleUrl}/auth/oauth2/login.php?id=1` }];
+  assert.ok((await startSsoLogin()).url, 'com OAuth 2 o launch.php aceita o login no browser');
+  console.log('ok — produto: cifra, isolamento de contas, perfil local, guia, eliminação e login SSO');
 } finally {
   if (child.exitCode === null) {
     child.kill();
