@@ -77,7 +77,7 @@ Ainda não assinado; o código e o build são públicos no GitHub Actions. Cada 
 Para confirmar o ficheiro descarregado, no PowerShell:
 
 ```powershell
-Get-FileHash .\Caderno-0.3.2-Windows-x64.exe
+Get-FileHash .\Caderno-0.3.3-Windows-x64.exe
 ```
 
 O valor tem de ser igual ao das notas da release (maiúsculas ou minúsculas, tanto faz).
@@ -176,8 +176,8 @@ A pasta `site/` é estática (HTML, CSS e um pequeno script) e não precisa de b
 
 ### Publicar uma versão
 
-1. Atualiza `version` no `package.json` (por exemplo `0.3.2`) e faz commit.
-2. Cria e envia a tag: `git tag v0.3.2 && git push origin main v0.3.2`.
+1. Atualiza `version` no `package.json` (por exemplo `0.3.3`) e faz commit.
+2. Cria e envia a tag: `git tag v0.3.3 && git push origin main v0.3.3`.
 3. O workflow [Windows desktop](.github/workflows/windows.yml) testa, compila numa máquina Windows e cria a release com o instalador, o `latest.yml` das atualizações automáticas e o SHA-256 nas notas. Se o segredo `VT_API_KEY` existir no repositório, envia também o instalador ao VirusTotal e liga a análise nas notas.
 
 Tags com hífen (`v0.4.0-beta`) ficam como pré-lançamento e não chegam às atualizações automáticas. O site passa a oferecer a nova versão sem alterações.

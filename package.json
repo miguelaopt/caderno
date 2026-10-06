@@ -1,6 +1,6 @@
 {
   "name": "app-estudos",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Aplicação de estudo offline com Moodle, PDFs e IA opcional",
   "author": "Miguel Ferreira",
   "private": true,
