@@ -28,10 +28,12 @@ if (mode === 'lint') {
   }
   JSON.parse(await readFile('web/manifest.webmanifest', 'utf8'));
   // O site estático (Vercel, pasta site/) só pode referir ficheiros que existem.
+  // /_vercel/ é servido pela própria Vercel (Web Analytics), não pela pasta.
   JSON.parse(await readFile('site/vercel.json', 'utf8'));
   for (const page of ['site/index.html', 'site/privacidade.html']) {
     const source = await readFile(page, 'utf8');
-    for (const [, asset] of source.matchAll(/(?:src|href)="\/([^"#?]+\.[a-z0-9]+)"/g)) await access(`site/${asset}`);
+    for (const [, asset] of source.matchAll(/(?:src|href)="\/([^"#?]+\.[a-z0-9]+)"/g))
+      if (!asset.startsWith('_vercel/')) await access(`site/${asset}`);
   }
   console.log('Aplicação estática e servidor prontos.');
 } else throw new Error(`Modo desconhecido: ${mode}`);

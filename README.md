@@ -170,7 +170,7 @@ As capturas são reais, com dados fictícios: cria uma base temporária com `scr
 <details>
 <summary><strong>Site</strong></summary>
 
-A pasta `site/` é estática (HTML, CSS e um pequeno script) e não precisa de build. Na Vercel, o projeto usa **Root Directory** = `site` e nenhum framework; `site/vercel.json` define URLs limpos e cabeçalhos de segurança. Os botões de download apontam para a última versão conhecida e são atualizados no browser pela API pública do GitHub. A fonte dos títulos é a Newsreader (SIL OFL 1.1, em `site/fonts/` e `web/fonts/`).
+A pasta `site/` é estática (HTML, CSS e um pequeno script) e não precisa de build. Na Vercel, o projeto usa **Root Directory** = `site` e nenhum framework; `site/vercel.json` define URLs limpos e cabeçalhos de segurança. Os botões de download apontam para a última versão conhecida e são atualizados no browser pela API pública do GitHub. As visitas contam-se com o Vercel Web Analytics (`/_vercel/insights/script.js`, sem cookies), que tem de estar ativo no separador **Analytics** do projeto. A fonte dos títulos é a Newsreader (SIL OFL 1.1, em `site/fonts/` e `web/fonts/`).
 
 </details>
 
