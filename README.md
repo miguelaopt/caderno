@@ -186,4 +186,4 @@ Tags com hífen (`v0.4.0-beta`) ficam como pré-lançamento e não chegam às at
 
 Lê o [CONTRIBUTING.md](CONTRIBUTING.md) antes de propor alterações. O trabalho pendente está em [docs/ROADMAP.md](docs/ROADMAP.md).
 
-<sub>Feito por [Miguel Ferreira](https://github.com/miguelaopt), estudante de Engenharia Informática. Independente, sem afiliação ao Moodle. Código sob a [licença MIT](LICENSE).</sub>
+<sub>Feito por um estudante de Engenharia Informática. Independente, sem afiliação ao Moodle. Código sob a [licença MIT](LICENSE).</sub>
