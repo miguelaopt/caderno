@@ -8,11 +8,6 @@ const sources = [...(await readdir('lib')).filter((name) => name.endsWith('.mjs'
   ...(await readdir('desktop')).filter((name) => name.endsWith('.mjs')).map((name) => join('desktop', name)),
   'web/product.js'];
 
-if (mode === 'typecheck') {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--project', 'tsconfig.json'], { stdio: 'inherit' });
-  process.exit(result.status ?? 1);
-}
-
 for (const file of sources) {
   const result = spawnSync(process.execPath, ['--check', file], { stdio: 'inherit' });
   if (result.status) process.exit(result.status);

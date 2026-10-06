@@ -22,7 +22,7 @@
     "desktop:dist": "electron-builder --win nsis --x64 --publish never",
     "build": "node scripts/check-project.mjs build",
     "lint": "node scripts/check-project.mjs lint",
-    "typecheck": "node scripts/check-project.mjs typecheck"
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
